@@ -1,0 +1,22 @@
+{
+  "schema_version": "llm-budget-tracker.price_catalog.v1",
+  "catalog_version": "2026-04-manual",
+  "source": "embedded_manual",
+  "provider": "gemini",
+  "entries": [
+    {
+      "model_id": "gemini-2.5-pro",
+      "lookup_key": "gemini/gemini-2.5-pro",
+      "input_usd_per_1m": 1.25,
+      "output_usd_per_1m": 10.0,
+      "cache_read_usd_per_1m": 0.31
+    },
+    {
+      "model_id": "gemini-2.5-flash",
+      "lookup_key": "gemini/gemini-2.5-flash",
+      "input_usd_per_1m": 0.3,
+      "output_usd_per_1m": 2.5,
+      "cache_read_usd_per_1m": 0.08
+    }
+  ]
+}

@@ -1,0 +1,3 @@
+{"timestamp":"2026-04-17T10:00:00Z","type":"session_start","payload":{"session_id":"sess_codex_demo_warn","cwd":"/workspace/sample-project","billing_mode":"subscription","model":"gpt-5-codex"}}
+{"timestamp":"2026-04-17T10:00:02Z","type":"mystery_event","payload":{"kind":"preview_only","note":"sanitized fixture"}}
+{"timestamp":"2026-04-17T10:00:05Z","type":"response_item","payload":{"id":"msg_warn_1","type":"message","role":"assistant","model":"gpt-5-codex","usage":{"input_tokens":42,"output_tokens":7}}}

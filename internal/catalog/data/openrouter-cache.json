@@ -1,0 +1,7 @@
+{
+  "schema_version": "llm-budget-tracker.price_catalog.v1",
+  "catalog_version": "placeholder",
+  "source": "openrouter_cache",
+  "provider": "openrouter",
+  "entries": []
+}

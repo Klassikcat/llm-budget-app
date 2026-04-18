@@ -1,0 +1,10 @@
+2026-04-19T02:28:16+09:00 - Added explicit dependency `github.com/NimbleMarkets/ntcharts v0.5.1` to `go.mod` and recorded its checksums in `go.sum`; verified the project still builds with `go build ./...`.
+2026-04-19T02:36:18+09:00 - Added `GraphQueryService` using monthly `UsageFilter` + in-memory accumulators only; token-oriented outputs use stable model normalization (`unknown-model`), deterministic descending ranking, and fold ranks beyond the top 10 into `Other` while daily trends still emit every day in the month.
+2026-04-19T02:41:05+09:00 - Added TUI graph-mode scaffolding in `model.go`: `viewGraphs`, a four-tab `graphTab`, `graphLoadedMsg`, graph state fields, and `loadGraphs()` so `g` lazily queries `QueryGraphs` while Esc/Backspace exits and Tab/Shift+Tab/Left/Right/h/l cycle tabs without changing dashboard/form/insight behavior.
+2026-04-19T02:46:07+09:00 - Task 3 needs minimal `view.go` integration to be testable: a dedicated `viewGraphs` render branch plus visible tab labels, graph-mode header/help text, and loading/error placeholders are enough for QA without pulling real ntcharts rendering into this step.
+- `ntcharts` `barchart` requires `WithNoAutoBarWidth()` and `WithBarWidth(1)` to render horizontal bars correctly when the height is constrained.
+- The origin of the `barchart` is calculated based on the label length. When using `WithDataSet`, it's important to pass it before `WithHorizontalBars` so that the origin is calculated correctly, or call `Resize` / `SetHorizontal` after adding data.
+- `humanize.Comma` is useful for formatting large numbers with commas.
+- Added OpenRouter-style rank and percentage share to the graph labels.
+- Updated the truncation logic to use `utf8.RuneCountInString` and `[]rune` to correctly handle multi-byte characters like `…` and ensure the label fits within the allowed width.
+- Always clean up root-level scratch files (`test_*.go`) created for quick testing, as they can cause `go test ./...` and `go build ./...` to fail due to duplicate `main` functions.

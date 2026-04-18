@@ -1,0 +1,9 @@
+schema_version: llm-budget-tracker.price_catalog.v1
+catalog_version: test-openrouter-override
+source: user_override
+provider: openrouter
+entries:
+  - model_id: anthropic/claude-3.5-sonnet-20241022
+    lookup_key: anthropic/claude-3.5-sonnet
+    input_usd_per_1m: 9.99
+    output_usd_per_1m: 19.99

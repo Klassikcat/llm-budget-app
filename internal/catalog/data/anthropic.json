@@ -1,0 +1,32 @@
+{
+  "schema_version": "llm-budget-tracker.price_catalog.v1",
+  "catalog_version": "2026-04-manual",
+  "source": "embedded_manual",
+  "provider": "anthropic",
+  "entries": [
+    {
+      "model_id": "claude-sonnet-4-0",
+      "lookup_key": "anthropic/claude-sonnet-4-0",
+      "input_usd_per_1m": 3.0,
+      "output_usd_per_1m": 15.0,
+      "cache_read_usd_per_1m": 0.3,
+      "cache_write_usd_per_1m": 3.75
+    },
+    {
+      "model_id": "claude-opus-4-0",
+      "lookup_key": "anthropic/claude-opus-4-0",
+      "input_usd_per_1m": 15.0,
+      "output_usd_per_1m": 75.0,
+      "cache_read_usd_per_1m": 1.5,
+      "cache_write_usd_per_1m": 18.75
+    },
+    {
+      "model_id": "claude-3-5-haiku",
+      "lookup_key": "anthropic/claude-3-5-haiku",
+      "input_usd_per_1m": 0.8,
+      "output_usd_per_1m": 4.0,
+      "cache_read_usd_per_1m": 0.08,
+      "cache_write_usd_per_1m": 1.0
+    }
+  ]
+}

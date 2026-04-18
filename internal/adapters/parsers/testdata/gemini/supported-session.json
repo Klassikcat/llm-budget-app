@@ -1,0 +1,36 @@
+{
+  "sessionId": "45548acb-a712-4740-a867-cdc9f3ce994f",
+  "projectHash": "a2ae60f67948c12452528f9fec6b31af78312838da2295436abc1edf0b79b314",
+  "startTime": "2026-01-23T08:50:47.653Z",
+  "lastUpdated": "2026-01-23T08:50:54.101Z",
+  "messages": [
+    {
+      "id": "6d192b68-a72e-4f44-85d7-b9fcf902aca1",
+      "timestamp": "2026-01-23T08:50:47.653Z",
+      "type": "user",
+      "content": "redacted-user-message"
+    },
+    {
+      "id": "df40687d-2eed-4c9f-8fc7-a0944809dbf5",
+      "timestamp": "2026-01-23T08:50:54.101Z",
+      "type": "gemini",
+      "content": "redacted-assistant-message",
+      "thoughts": [
+        {
+          "subject": "Redacted",
+          "description": "redacted-thought",
+          "timestamp": "2026-01-23T08:50:52.836Z"
+        }
+      ],
+      "tokens": {
+        "input": 24312,
+        "output": 193,
+        "cached": 0,
+        "thoughts": 111,
+        "tool": 0,
+        "total": 24616
+      },
+      "model": "gemini-3-flash-preview"
+    }
+  ]
+}

@@ -1,0 +1,1 @@
+{"timestamp":"2026-04-15T09:30:00Z","version":"0.9.8","requestId":"req-legacy-1","message":{"id":"msg-legacy-1","model":"claude-3-5-haiku-20241022","usage":{"input_tokens":40,"output_tokens":18,"cache_creation_input_tokens":8,"cache_read_input_tokens":4,"speed":"standard"},"content":[{"type":"tool_use"},{"type":"text","text":"redacted"}]}}

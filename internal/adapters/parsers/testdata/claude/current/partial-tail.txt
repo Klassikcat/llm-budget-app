@@ -1,0 +1,1 @@
+{"cwd":"/workspace/acme-app","sessionId":"partial-session","timestamp":"2026-04-16T11:05:00Z","requestId":"req-partial-2","message":{"id":"msg-partial-2","model":"claude-3-7-sonnet-20250219","usage":{"input_tokens":44,"output_tokens":16

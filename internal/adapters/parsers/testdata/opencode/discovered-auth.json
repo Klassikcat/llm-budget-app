@@ -1,0 +1,11 @@
+{
+  "openrouter": {
+    "type": "api"
+  },
+  "openai": {
+    "type": "oauth"
+  },
+  "google": {
+    "type": "api"
+  }
+}

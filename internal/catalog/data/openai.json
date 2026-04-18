@@ -1,0 +1,29 @@
+{
+  "schema_version": "llm-budget-tracker.price_catalog.v1",
+  "catalog_version": "2026-04-manual",
+  "source": "embedded_manual",
+  "provider": "openai",
+  "entries": [
+    {
+      "model_id": "gpt-4.1",
+      "lookup_key": "openai/gpt-4.1",
+      "input_usd_per_1m": 2.0,
+      "output_usd_per_1m": 8.0,
+      "cache_read_usd_per_1m": 0.5
+    },
+    {
+      "model_id": "gpt-4.1-mini",
+      "lookup_key": "openai/gpt-4.1-mini",
+      "input_usd_per_1m": 0.4,
+      "output_usd_per_1m": 1.6,
+      "cache_read_usd_per_1m": 0.1
+    },
+    {
+      "model_id": "gpt-4.1-nano",
+      "lookup_key": "openai/gpt-4.1-nano",
+      "input_usd_per_1m": 0.1,
+      "output_usd_per_1m": 0.4,
+      "cache_read_usd_per_1m": 0.025
+    }
+  ]
+}
