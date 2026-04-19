@@ -19,6 +19,7 @@ func Run() error {
 	app := NewApp(
 		NewDashboardBinding(graph.DashboardQueryService),
 		NewFormsBinding(graph.SettingsService, graph.SubscriptionService, graph.ManualEntryService, graph.MonthlyBudgetService, notifier),
+		NewSubscriptionLookupBinding(graph.SubscriptionQueryService),
 	)
 
 	return wails.Run(app.options())

@@ -37,20 +37,21 @@ type Options struct {
 }
 
 type Graph struct {
-	Paths                  config.Paths
-	Settings               config.Settings
-	SettingsStore          *config.SettingsStore
-	SecretStore            config.SecretStore
-	Store                  *sqlite.Store
-	Catalog                *catalogpkg.Catalog
-	DashboardQueryService  *service.DashboardQueryService
-	SettingsService        *service.SettingsService
-	SubscriptionService    *service.SubscriptionService
-	ManualEntryService     *service.ManualAPIUsageEntryService
-	MonthlyBudgetService   *service.MonthlyBudgetService
-	InsightExecutorService *service.InsightExecutorService
-	BudgetMonitorService   *service.BudgetMonitorService
-	WatchCoordinator       *service.WatchCoordinator
+	Paths                    config.Paths
+	Settings                 config.Settings
+	SettingsStore            *config.SettingsStore
+	SecretStore              config.SecretStore
+	Store                    *sqlite.Store
+	Catalog                  *catalogpkg.Catalog
+	DashboardQueryService    *service.DashboardQueryService
+	SubscriptionQueryService *service.SubscriptionQueryService
+	SettingsService          *service.SettingsService
+	SubscriptionService      *service.SubscriptionService
+	ManualEntryService       *service.ManualAPIUsageEntryService
+	MonthlyBudgetService     *service.MonthlyBudgetService
+	InsightExecutorService   *service.InsightExecutorService
+	BudgetMonitorService     *service.BudgetMonitorService
+	WatchCoordinator         *service.WatchCoordinator
 
 	openRouterCatalogSync  *service.CatalogSyncService
 	openRouterActivitySync *service.OpenRouterActivitySyncService
@@ -121,6 +122,7 @@ func Start(ctx context.Context, opts Options) (*Graph, error) {
 
 	normalizer := service.NewSessionNormalizerService(store, store, store)
 	queryService := service.NewDashboardQueryService(store, store, store, store)
+	subscriptionQueryService := service.NewSubscriptionQueryService(store)
 	settingsService := service.NewSettingsService(settingsStore, secretStore)
 	subscriptionService := service.NewSubscriptionService(store, store)
 	manualEntryService := service.NewManualAPIUsageEntryService(catalog, store)
@@ -138,23 +140,24 @@ func Start(ctx context.Context, opts Options) (*Graph, error) {
 	}
 
 	graph := &Graph{
-		Paths:                  paths,
-		Settings:               settings,
-		SettingsStore:          settingsStore,
-		SecretStore:            secretStore,
-		Store:                  store,
-		Catalog:                catalog,
-		DashboardQueryService:  queryService,
-		SettingsService:        settingsService,
-		SubscriptionService:    subscriptionService,
-		ManualEntryService:     manualEntryService,
-		MonthlyBudgetService:   monthlyBudgetService,
-		InsightExecutorService: insightExecutor,
-		BudgetMonitorService:   budgetMonitor,
-		rawNotifier:            opts.Notifier,
-		warningRecorder:        recorder,
-		now:                    clock,
-		cancel:                 cancel,
+		Paths:                    paths,
+		Settings:                 settings,
+		SettingsStore:            settingsStore,
+		SecretStore:              secretStore,
+		Store:                    store,
+		Catalog:                  catalog,
+		DashboardQueryService:    queryService,
+		SubscriptionQueryService: subscriptionQueryService,
+		SettingsService:          settingsService,
+		SubscriptionService:      subscriptionService,
+		ManualEntryService:       manualEntryService,
+		MonthlyBudgetService:     monthlyBudgetService,
+		InsightExecutorService:   insightExecutor,
+		BudgetMonitorService:     budgetMonitor,
+		rawNotifier:              opts.Notifier,
+		warningRecorder:          recorder,
+		now:                      clock,
+		cancel:                   cancel,
 	}
 
 	graph.openRouterCatalogSync, graph.openRouterActivitySync = buildOpenRouterServices(settings, secretStore, catalog, normalizer, recorder)

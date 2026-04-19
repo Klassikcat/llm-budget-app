@@ -26,6 +26,7 @@ const (
 	ValidationCodeNegativeCost        ValidationCode = "negative_cost"
 	ValidationCodeInvalidTimestamp    ValidationCode = "invalid_timestamp"
 	ValidationCodeInvalidTimeRange    ValidationCode = "invalid_time_range"
+	ValidationCodeInvalidPreset       ValidationCode = "invalid_preset"
 )
 
 type ValidationError struct {
