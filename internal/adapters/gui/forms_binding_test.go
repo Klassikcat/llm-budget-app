@@ -90,19 +90,43 @@ func TestSettingsAndEntryForms(t *testing.T) {
 	})
 	assertMutationSuccess(t, secretResponse)
 
-	subscriptionResponse := binding.SaveSubscription(SubscriptionFormInput{
-		SubscriptionID: "sub-openai-plus",
-		Provider:       "openai",
-		PlanCode:       "chatgpt-plus",
-		PlanName:       "ChatGPT Plus",
-		RenewalDay:     1,
-		StartsAt:       "2026-04-01T00:00:00Z",
-		FeeUSD:         20,
-		IsActive:       true,
+	presets := binding.ListSubscriptionPresets()
+	if got := len(presets.Items); got != 9 {
+		t.Fatalf("len(ListSubscriptionPresets().Items) = %d, want 9", got)
+	}
+
+	presetSubscriptionResponse := binding.SaveSubscription(SubscriptionFormInput{
+		PresetKey:  "chatgpt-pro-20x",
+		StartsAt:   "2026-04-01",
+		RenewalDay: 4,
+		FeeUSD:     180,
+		IsActive:   true,
 	})
-	assertMutationSuccess(t, subscriptionResponse.Result)
-	if subscriptionResponse.Subscription.SubscriptionID != "sub-openai-plus" {
-		t.Fatalf("subscription id = %q, want sub-openai-plus", subscriptionResponse.Subscription.SubscriptionID)
+	assertMutationSuccess(t, presetSubscriptionResponse.Result)
+	if got, want := presetSubscriptionResponse.Subscription.Provider, "openai"; got != want {
+		t.Fatalf("preset subscription provider = %q, want %q", got, want)
+	}
+	if got, want := presetSubscriptionResponse.Subscription.PlanName, "ChatGPT Pro 20x"; got != want {
+		t.Fatalf("preset subscription plan = %q, want %q", got, want)
+	}
+	if got, want := presetSubscriptionResponse.Subscription.StartsAt, "2026-04-01"; got != want {
+		t.Fatalf("preset subscription startsAt = %q, want %q", got, want)
+	}
+
+	manualSubscriptionResponse := binding.SaveSubscription(SubscriptionFormInput{
+		Provider:   "custom-llm",
+		PlanName:   "Custom Research Plan",
+		RenewalDay: 9,
+		StartsAt:   "2026-04-12",
+		FeeUSD:     12.34,
+		IsActive:   true,
+	})
+	assertMutationSuccess(t, manualSubscriptionResponse.Result)
+	if got, want := manualSubscriptionResponse.Subscription.Provider, "custom-llm"; got != want {
+		t.Fatalf("manual subscription provider = %q, want %q", got, want)
+	}
+	if got, want := manualSubscriptionResponse.Subscription.PlanName, "Custom Research Plan"; got != want {
+		t.Fatalf("manual subscription plan = %q, want %q", got, want)
 	}
 
 	manualEntryResponse := binding.SaveManualEntry(ManualEntryFormInput{
@@ -165,12 +189,36 @@ func TestSettingsAndEntryForms(t *testing.T) {
 		t.Fatalf("keyring secret = %q, want secret-openrouter-key", got)
 	}
 
-	subscriptions, err := store.ListSubscriptions(context.Background(), ports.SubscriptionFilter{SubscriptionID: "sub-openai-plus"})
+	subscriptions, err := store.ListSubscriptions(context.Background(), ports.SubscriptionFilter{})
 	if err != nil {
 		t.Fatalf("ListSubscriptions() error = %v", err)
 	}
-	if len(subscriptions) != 1 || subscriptions[0].PlanCode != "chatgpt-plus" {
-		t.Fatalf("subscriptions = %+v, want single chatgpt-plus subscription", subscriptions)
+	if len(subscriptions) != 2 {
+		t.Fatalf("subscriptions len = %d, want 2", len(subscriptions))
+	}
+	var foundPreset, foundManual bool
+	for _, subscription := range subscriptions {
+		switch subscription.PlanName {
+		case "ChatGPT Pro 20x":
+			foundPreset = true
+			if subscription.PlanCode == "" || subscription.SubscriptionID == "" {
+				t.Fatalf("preset subscription generated fields = %+v, want non-empty plan code and id", subscription)
+			}
+			if subscription.FeeUSD != 180 || subscription.RenewalDay != 4 {
+				t.Fatalf("preset subscription = %+v, want overridden fee 180 and renewal day 4", subscription)
+			}
+		case "Custom Research Plan":
+			foundManual = true
+			if subscription.PlanCode == "" || subscription.SubscriptionID == "" {
+				t.Fatalf("manual subscription generated fields = %+v, want non-empty plan code and id", subscription)
+			}
+			if subscription.Provider.String() != "custom-llm" {
+				t.Fatalf("manual subscription provider = %q, want custom-llm", subscription.Provider)
+			}
+		}
+	}
+	if !foundPreset || !foundManual {
+		t.Fatalf("subscriptions = %+v, want one preset and one manual subscription", subscriptions)
 	}
 
 	entries, err := store.ListUsageEntries(context.Background(), ports.UsageFilter{Project: "llm-budget-tracker"})
@@ -222,6 +270,99 @@ func TestSettingsAndEntryFormsValidationError(t *testing.T) {
 	}
 	if len(entries) != 0 {
 		t.Fatalf("ListUsageEntries() len = %d, want 0 after validation failure", len(entries))
+	}
+}
+
+func TestSaveSubscriptionValidationError(t *testing.T) {
+	t.Parallel()
+
+	binding, store, _, _ := newTestFormsBinding(t, notifierStub{})
+	defer store.Close()
+	binding.startup(context.Background())
+
+	response := binding.SaveSubscription(SubscriptionFormInput{
+		Provider:   "openai",
+		PlanName:   "ChatGPT Plus",
+		RenewalDay: 1,
+		StartsAt:   "not-a-date",
+		FeeUSD:     20,
+		IsActive:   true,
+	})
+
+	if response.Result.Success {
+		t.Fatal("SaveSubscription() success = true, want false")
+	}
+	if response.Result.Error == nil || response.Result.Error.Field != "starts_at" {
+		t.Fatalf("SaveSubscription() error = %+v, want starts_at validation error", response.Result.Error)
+	}
+
+	stored, err := store.ListSubscriptions(context.Background(), ports.SubscriptionFilter{})
+	if err != nil {
+		t.Fatalf("ListSubscriptions() error = %v", err)
+	}
+	if len(stored) != 0 {
+		t.Fatalf("ListSubscriptions() len = %d, want 0 after validation failure", len(stored))
+	}
+}
+
+func TestSaveSubscriptionRejectsRFC3339DateTimeInput(t *testing.T) {
+	t.Parallel()
+
+	binding, store, _, _ := newTestFormsBinding(t, notifierStub{})
+	defer store.Close()
+	binding.startup(context.Background())
+
+	response := binding.SaveSubscription(SubscriptionFormInput{
+		PresetKey:  "chatgpt-plus",
+		StartsAt:   "2026-04-01T09:00:00+09:00",
+		RenewalDay: 1,
+		FeeUSD:     20,
+		IsActive:   true,
+	})
+
+	if response.Result.Success {
+		t.Fatal("SaveSubscription() success = true, want false")
+	}
+	if response.Result.Error == nil || response.Result.Error.Field != "starts_at" || response.Result.Error.Message != "date must use YYYY-MM-DD" {
+		t.Fatalf("SaveSubscription() error = %+v, want date-only starts_at validation error", response.Result.Error)
+	}
+}
+
+func TestSaveSubscriptionSameDateUpsertsGeneratedID(t *testing.T) {
+	t.Parallel()
+
+	binding, store, _, _ := newTestFormsBinding(t, notifierStub{})
+	defer store.Close()
+	binding.startup(context.Background())
+
+	first := binding.SaveSubscription(SubscriptionFormInput{
+		PresetKey:  "chatgpt-plus",
+		StartsAt:   "2026-04-01",
+		RenewalDay: 1,
+		FeeUSD:     20,
+		IsActive:   true,
+	})
+	assertMutationSuccess(t, first.Result)
+
+	second := binding.SaveSubscription(SubscriptionFormInput{
+		PresetKey:  "chatgpt-plus",
+		StartsAt:   "2026-04-01",
+		EndsAt:     "2026-04-30",
+		RenewalDay: 5,
+		FeeUSD:     25,
+		IsActive:   false,
+	})
+	assertMutationSuccess(t, second.Result)
+
+	stored, err := store.ListSubscriptions(context.Background(), ports.SubscriptionFilter{})
+	if err != nil {
+		t.Fatalf("ListSubscriptions() error = %v", err)
+	}
+	if got := len(stored); got != 1 {
+		t.Fatalf("len(ListSubscriptions()) = %d, want 1", got)
+	}
+	if stored[0].RenewalDay != 5 || stored[0].FeeUSD != 25 || stored[0].IsActive {
+		t.Fatalf("stored subscription = %+v, want updated renewalDay=5 fee=25 isActive=false", stored[0])
 	}
 }
 

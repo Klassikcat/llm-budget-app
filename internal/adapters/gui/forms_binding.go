@@ -61,6 +61,21 @@ func NewFormsBinding(settings settingsLoader, subscriptions subscriptionSaver, m
 	}
 }
 
+func (b *FormsBinding) ListSubscriptionPresets() SubscriptionPresetsResponse {
+	presets := service.ListSubscriptionPresets()
+	items := make([]SubscriptionPresetState, 0, len(presets))
+	for _, preset := range presets {
+		items = append(items, SubscriptionPresetState{
+			Key:        preset.Key,
+			Provider:   preset.Provider.String(),
+			PlanName:   preset.PlanName,
+			RenewalDay: preset.DefaultRenewalDay,
+			FeeUSD:     preset.DefaultFeeUSD,
+		})
+	}
+	return SubscriptionPresetsResponse{Items: items}
+}
+
 func (b *FormsBinding) startup(ctx context.Context) {
 	if b == nil {
 		return
@@ -181,36 +196,45 @@ func (b *FormsBinding) SaveSubscription(input SubscriptionFormInput) Subscriptio
 		return SubscriptionMutationResponse{Result: failedMutationResult(errSubscriptionBindingUnavailable)}
 	}
 
-	provider, err := domain.NewProviderName(input.Provider)
+	resolved, err := resolveSubscriptionInput(input)
 	if err != nil {
 		return SubscriptionMutationResponse{Result: failedMutationResult(err)}
 	}
 
-	startsAt, err := parseTimestampInput("starts_at", input.StartsAt)
+	startsAt, err := parseSubscriptionDateInput("starts_at", resolved.StartsAt)
 	if err != nil {
 		return SubscriptionMutationResponse{Result: failedMutationResult(err)}
 	}
 
-	endsAt, err := parseOptionalTimestampInput("ends_at", input.EndsAt)
+	endsAt, err := parseOptionalSubscriptionDateInput("ends_at", resolved.EndsAt)
+	if err != nil {
+		return SubscriptionMutationResponse{Result: failedMutationResult(err)}
+	}
+
+	planCode, err := domain.GenerateSubscriptionPlanCode(resolved.Provider, resolved.PlanName)
+	if err != nil {
+		return SubscriptionMutationResponse{Result: failedMutationResult(err)}
+	}
+	subscriptionID, err := domain.GenerateSubscriptionID(resolved.Provider, resolved.PlanName, startsAt)
 	if err != nil {
 		return SubscriptionMutationResponse{Result: failedMutationResult(err)}
 	}
 
 	createdAt := time.Time{}
-	if existing, err := b.subscriptions.ListSubscriptions(b.context(), ports.SubscriptionFilter{SubscriptionID: strings.TrimSpace(input.SubscriptionID)}); err == nil && len(existing) > 0 {
+	if existing, err := b.subscriptions.ListSubscriptions(b.context(), ports.SubscriptionFilter{SubscriptionID: subscriptionID}); err == nil && len(existing) > 0 {
 		createdAt = existing[0].CreatedAt
 	}
 
 	subscription := domain.Subscription{
-		SubscriptionID: strings.TrimSpace(input.SubscriptionID),
-		Provider:       provider,
-		PlanCode:       input.PlanCode,
-		PlanName:       input.PlanName,
-		RenewalDay:     input.RenewalDay,
+		SubscriptionID: subscriptionID,
+		Provider:       resolved.Provider,
+		PlanCode:       planCode,
+		PlanName:       resolved.PlanName,
+		RenewalDay:     resolved.RenewalDay,
 		StartsAt:       startsAt,
 		EndsAt:         endsAt,
-		FeeUSD:         input.FeeUSD,
-		IsActive:       input.IsActive,
+		FeeUSD:         resolved.FeeUSD,
+		IsActive:       resolved.IsActive,
 		CreatedAt:      createdAt,
 	}
 
@@ -230,6 +254,55 @@ func (b *FormsBinding) SaveSubscription(input SubscriptionFormInput) Subscriptio
 		Result:       successMutationResult(),
 		Subscription: toSubscriptionState(persisted[0]),
 	}
+}
+
+type resolvedSubscriptionInput struct {
+	PresetKey  string
+	Provider   domain.ProviderName
+	PlanName   string
+	RenewalDay int
+	StartsAt   string
+	EndsAt     string
+	FeeUSD     float64
+	IsActive   bool
+}
+
+func resolveSubscriptionInput(input SubscriptionFormInput) (resolvedSubscriptionInput, error) {
+	resolved := resolvedSubscriptionInput{
+		PresetKey:  strings.TrimSpace(input.PresetKey),
+		PlanName:   strings.TrimSpace(input.PlanName),
+		RenewalDay: input.RenewalDay,
+		StartsAt:   strings.TrimSpace(input.StartsAt),
+		EndsAt:     strings.TrimSpace(input.EndsAt),
+		FeeUSD:     input.FeeUSD,
+		IsActive:   input.IsActive,
+	}
+
+	if resolved.PresetKey != "" {
+		preset, err := service.ResolveSubscriptionPreset(resolved.PresetKey)
+		if err != nil {
+			return resolvedSubscriptionInput{}, err
+		}
+		resolved.Provider = preset.Provider
+		resolved.PlanName = preset.PlanName
+		if resolved.RenewalDay == 0 {
+			resolved.RenewalDay = preset.DefaultRenewalDay
+		}
+		if resolved.FeeUSD == 0 {
+			resolved.FeeUSD = preset.DefaultFeeUSD
+		}
+		return resolved, nil
+	}
+
+	provider, err := domain.NewProviderName(input.Provider)
+	if err != nil {
+		return resolvedSubscriptionInput{}, err
+	}
+	if resolved.PlanName == "" {
+		return resolvedSubscriptionInput{}, &domain.ValidationError{Code: domain.ValidationCodeRequired, Field: "plan_name", Message: "value is required"}
+	}
+	resolved.Provider = provider
+	return resolved, nil
 }
 
 func (b *FormsBinding) SaveManualEntry(input ManualEntryFormInput) ManualEntryMutationResponse {
@@ -450,6 +523,33 @@ func parseOptionalTimestampInput(field, raw string) (*time.Time, error) {
 	return &parsed, nil
 }
 
+func parseSubscriptionDateInput(field, raw string) (time.Time, error) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return time.Time{}, &domain.ValidationError{Code: domain.ValidationCodeRequired, Field: field, Message: "value is required"}
+	}
+
+	parsed, err := time.Parse("2006-01-02", trimmed)
+	if err != nil {
+		return time.Time{}, &domain.ValidationError{Code: domain.ValidationCodeInvalidTimestamp, Field: field, Message: "date must use YYYY-MM-DD"}
+	}
+
+	return time.Date(parsed.Year(), parsed.Month(), parsed.Day(), 0, 0, 0, 0, time.UTC), nil
+}
+
+func parseOptionalSubscriptionDateInput(field, raw string) (*time.Time, error) {
+	if strings.TrimSpace(raw) == "" {
+		return nil, nil
+	}
+
+	parsed, err := parseSubscriptionDateInput(field, raw)
+	if err != nil {
+		return nil, err
+	}
+
+	return &parsed, nil
+}
+
 func parseMonthInput(raw string) (domain.MonthlyPeriod, error) {
 	if strings.TrimSpace(raw) == "" {
 		return domain.MonthlyPeriod{}, &domain.ValidationError{Code: domain.ValidationCodeRequired, Field: "period_month", Message: "value is required"}
@@ -603,19 +703,24 @@ func toSubscriptionPlanSettings(input SubscriptionPlanState, fallback config.Sub
 
 func toSubscriptionState(subscription domain.Subscription) SubscriptionState {
 	state := SubscriptionState{
-		SubscriptionID: subscription.SubscriptionID,
-		Provider:       subscription.Provider.String(),
-		PlanCode:       subscription.PlanCode,
-		PlanName:       subscription.PlanName,
-		RenewalDay:     subscription.RenewalDay,
-		StartsAt:       formatDashboardTime(subscription.StartsAt),
-		FeeUSD:         subscription.FeeUSD,
-		IsActive:       subscription.IsActive,
+		Provider:   subscription.Provider.String(),
+		PlanName:   subscription.PlanName,
+		RenewalDay: subscription.RenewalDay,
+		StartsAt:   formatSubscriptionDate(subscription.StartsAt),
+		FeeUSD:     subscription.FeeUSD,
+		IsActive:   subscription.IsActive,
 	}
 	if subscription.EndsAt != nil {
-		state.EndsAt = formatDashboardTime(*subscription.EndsAt)
+		state.EndsAt = formatSubscriptionDate(*subscription.EndsAt)
 	}
 	return state
+}
+
+func formatSubscriptionDate(value time.Time) string {
+	if value.IsZero() {
+		return ""
+	}
+	return value.UTC().Format("2006-01-02")
 }
 
 func toManualEntryState(entry domain.UsageEntry) ManualEntryState {

@@ -12,12 +12,13 @@ import (
 var frontendAssets embed.FS
 
 type App struct {
-	dashboard *DashboardBinding
-	forms     *FormsBinding
+	dashboard     *DashboardBinding
+	forms         *FormsBinding
+	subscriptions *SubscriptionLookupBinding
 }
 
-func NewApp(dashboard *DashboardBinding, forms *FormsBinding) *App {
-	return &App{dashboard: dashboard, forms: forms}
+func NewApp(dashboard *DashboardBinding, forms *FormsBinding, subscriptions *SubscriptionLookupBinding) *App {
+	return &App{dashboard: dashboard, forms: forms, subscriptions: subscriptions}
 }
 
 func (a *App) startup(ctx context.Context) {
@@ -30,6 +31,9 @@ func (a *App) startup(ctx context.Context) {
 	if a.forms != nil {
 		a.forms.startup(ctx)
 	}
+	if a.subscriptions != nil {
+		a.subscriptions.startup(ctx)
+	}
 }
 
 func (a *App) options() *options.App {
@@ -39,6 +43,9 @@ func (a *App) options() *options.App {
 	}
 	if a != nil && a.forms != nil {
 		bindings = append(bindings, a.forms)
+	}
+	if a != nil && a.subscriptions != nil {
+		bindings = append(bindings, a.subscriptions)
 	}
 
 	return &options.App{

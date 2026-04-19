@@ -89,15 +89,14 @@ type ProviderSecretDeleteInput struct {
 }
 
 type SubscriptionFormInput struct {
-	SubscriptionID string  `json:"subscriptionId"`
-	Provider       string  `json:"provider"`
-	PlanCode       string  `json:"planCode"`
-	PlanName       string  `json:"planName"`
-	RenewalDay     int     `json:"renewalDay"`
-	StartsAt       string  `json:"startsAt"`
-	EndsAt         string  `json:"endsAt"`
-	FeeUSD         float64 `json:"feeUsd"`
-	IsActive       bool    `json:"isActive"`
+	PresetKey  string  `json:"presetKey"`
+	Provider   string  `json:"provider"`
+	PlanName   string  `json:"planName"`
+	RenewalDay int     `json:"renewalDay"`
+	StartsAt   string  `json:"startsAt"`
+	EndsAt     string  `json:"endsAt"`
+	FeeUSD     float64 `json:"feeUsd"`
+	IsActive   bool    `json:"isActive"`
 }
 
 type SubscriptionMutationResponse struct {
@@ -106,15 +105,31 @@ type SubscriptionMutationResponse struct {
 }
 
 type SubscriptionState struct {
-	SubscriptionID string  `json:"subscriptionId"`
-	Provider       string  `json:"provider"`
-	PlanCode       string  `json:"planCode"`
-	PlanName       string  `json:"planName"`
-	RenewalDay     int     `json:"renewalDay"`
-	StartsAt       string  `json:"startsAt"`
-	EndsAt         string  `json:"endsAt,omitempty"`
-	FeeUSD         float64 `json:"feeUsd"`
-	IsActive       bool    `json:"isActive"`
+	PresetKey  string  `json:"presetKey,omitempty"`
+	Provider   string  `json:"provider"`
+	PlanName   string  `json:"planName"`
+	RenewalDay int     `json:"renewalDay"`
+	StartsAt   string  `json:"startsAt"`
+	EndsAt     string  `json:"endsAt,omitempty"`
+	FeeUSD     float64 `json:"feeUsd"`
+	IsActive   bool    `json:"isActive"`
+}
+
+type SubscriptionPresetState struct {
+	Key        string  `json:"key"`
+	Provider   string  `json:"provider"`
+	PlanName   string  `json:"planName"`
+	RenewalDay int     `json:"renewalDay"`
+	FeeUSD     float64 `json:"feeUsd"`
+}
+
+type SubscriptionPresetsResponse struct {
+	Items []SubscriptionPresetState `json:"items"`
+}
+
+type SubscriptionListResponse struct {
+	Items []SubscriptionState `json:"items"`
+	Empty bool                `json:"empty"`
 }
 
 type ManualEntryFormInput struct {
