@@ -322,6 +322,83 @@ func TestStartupBootstrapOnlySkipsRefreshAndWatchers(t *testing.T) {
 	}
 }
 
+func TestStartupDisablesExistingConfiguredSubscriptionWithoutCountingIt(t *testing.T) {
+	t.Parallel()
+
+	anchor := time.Date(2026, time.April, 19, 12, 0, 0, 0, time.UTC)
+	paths := testPaths(t)
+	writeSettings(t, paths, func(settings config.Settings) config.Settings {
+		settings.Providers.OpenRouter.Enabled = false
+		settings.SubscriptionDefaults.OpenAI.Enabled = false
+		settings.SubscriptionDefaults.Claude.Enabled = false
+		settings.SubscriptionDefaults.Gemini.Enabled = false
+		return settings
+	})
+
+	store, err := sqlite.Bootstrap(context.Background(), sqlite.Options{Path: paths.DatabaseFile})
+	if err != nil {
+		t.Fatalf("sqlite.Bootstrap() error = %v", err)
+	}
+	seeded := mustSubscription(t, domain.Subscription{
+		SubscriptionID: "settings-openai-subscription",
+		Provider:       domain.ProviderOpenAI,
+		PlanCode:       "chatgpt-plus",
+		PlanName:       "ChatGPT Plus",
+		RenewalDay:     5,
+		StartsAt:       time.Date(2026, time.April, 5, 0, 0, 0, 0, time.UTC),
+		FeeUSD:         20,
+		IsActive:       true,
+		CreatedAt:      time.Date(2026, time.April, 5, 0, 0, 0, 0, time.UTC),
+		UpdatedAt:      time.Date(2026, time.April, 5, 0, 0, 0, 0, time.UTC),
+	})
+	if err := store.UpsertSubscriptions(context.Background(), []domain.Subscription{seeded}); err != nil {
+		store.Close()
+		t.Fatalf("UpsertSubscriptions() error = %v", err)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatalf("store.Close() error = %v", err)
+	}
+
+	graph, err := Start(context.Background(), Options{
+		Paths:          paths,
+		HomeDir:        t.TempDir(),
+		Notifier:       noopNotifier{},
+		SecretStore:    emptySecretStore{},
+		WatcherFactory: func() (service.FileWatcher, error) { return newStubWatcher(), nil },
+		Now:            func() time.Time { return anchor },
+	})
+	if err != nil {
+		t.Fatalf("Start() error = %v", err)
+	}
+	defer graph.Close()
+
+	inactive := false
+	items, err := graph.Store.ListSubscriptions(context.Background(), ports.SubscriptionFilter{SubscriptionID: "settings-openai-subscription", Active: &inactive})
+	if err != nil {
+		t.Fatalf("ListSubscriptions(inactive) error = %v", err)
+	}
+	if len(items) != 1 {
+		t.Fatalf("len(inactive subscriptions) = %d, want 1", len(items))
+	}
+	if items[0].EndsAt == nil || !items[0].EndsAt.Equal(anchor) {
+		t.Fatalf("EndsAt = %v, want %v", items[0].EndsAt, anchor)
+	}
+
+	period, err := domain.NewMonthlyPeriod(anchor)
+	if err != nil {
+		t.Fatalf("NewMonthlyPeriod() error = %v", err)
+	}
+	snapshot, err := graph.DashboardQueryService.QueryDashboard(context.Background(), service.DashboardQuery{Period: period})
+	if err != nil {
+		t.Fatalf("QueryDashboard() error = %v", err)
+	}
+	assertFloatEquals(t, snapshot.Totals.SubscriptionSpendUSD, 0)
+	assertFloatEquals(t, snapshot.Totals.TotalSpendUSD, 0)
+	if len(snapshot.ProviderSummaries) != 0 {
+		t.Fatalf("ProviderSummaries = %+v, want none for disabled configured subscription", snapshot.ProviderSummaries)
+	}
+}
+
 type stubWatcher struct {
 	events chan service.FileWatchEvent
 	errors chan error

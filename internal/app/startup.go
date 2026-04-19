@@ -344,7 +344,10 @@ func syncConfiguredSubscriptions(ctx context.Context, subscriptions *service.Sub
 		}
 
 		if !item.plan.Enabled {
-			if len(current) == 0 || !current[0].IsActive {
+			if len(current) == 0 {
+				continue
+			}
+			if !current[0].IsActive {
 				continue
 			}
 			if err := subscriptions.DisableSubscription(ctx, item.subscriptionID, now); err != nil {
