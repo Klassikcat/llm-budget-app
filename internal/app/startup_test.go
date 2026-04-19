@@ -253,6 +253,75 @@ func TestStartupSyncsEnabledConfiguredSubscriptions(t *testing.T) {
 	assertFloatEquals(t, snapshot.Totals.SubscriptionSpendUSD, 20)
 }
 
+func TestStartupBootstrapOnlySkipsRefreshAndWatchers(t *testing.T) {
+	t.Parallel()
+
+	anchor := time.Date(2026, time.April, 19, 12, 0, 0, 0, time.UTC)
+	paths := testPaths(t)
+	writeSettings(t, paths, func(settings config.Settings) config.Settings {
+		settings.Providers.OpenRouter.Enabled = true
+		settings.Notifications.BudgetWarnings = true
+		settings.Notifications.ForecastWarnings = true
+		settings.SubscriptionDefaults.OpenAI.Enabled = true
+		settings.SubscriptionDefaults.OpenAI.RenewalDay = 5
+		return settings
+	})
+
+	watcherCalls := 0
+	graph, err := Start(context.Background(), Options{
+		Paths:         paths,
+		BootstrapOnly: true,
+		HomeDir:       t.TempDir(),
+		Notifier:      noopNotifier{},
+		SecretStore:   emptySecretStore{},
+		WatcherFactory: func() (service.FileWatcher, error) {
+			watcherCalls++
+			return newStubWatcher(), nil
+		},
+		WatchTargets: []service.WatchTarget{service.NewClaudeWatchTarget(filepath.Join(t.TempDir(), ".claude"), parsers.NewClaudeCodeParser())},
+		Now:          func() time.Time { return anchor },
+	})
+	if err != nil {
+		t.Fatalf("Start() error = %v", err)
+	}
+	defer graph.Close()
+
+	if watcherCalls != 0 {
+		t.Fatalf("watcherCalls = %d, want 0", watcherCalls)
+	}
+	if graph.WatchCoordinator != nil {
+		t.Fatal("WatchCoordinator != nil, want nil in bootstrap-only mode")
+	}
+	if warnings := graph.Warnings(); len(warnings) != 0 {
+		t.Fatalf("Warnings() = %v, want none in bootstrap-only mode", warnings)
+	}
+
+	period := mustMonthlyPeriod(t, anchor.Year(), anchor.Month())
+	insights, err := graph.Store.ListInsights(context.Background(), period)
+	if err != nil {
+		t.Fatalf("ListInsights() error = %v", err)
+	}
+	if len(insights) != 0 {
+		t.Fatalf("len(insights) = %d, want 0 when refresh is skipped", len(insights))
+	}
+
+	alerts, err := graph.Store.ListAlerts(context.Background(), ports.AlertFilter{Period: &period})
+	if err != nil {
+		t.Fatalf("ListAlerts() error = %v", err)
+	}
+	if len(alerts) != 0 {
+		t.Fatalf("len(alerts) = %d, want 0 when refresh is skipped", len(alerts))
+	}
+
+	subscriptions, err := graph.Store.ListSubscriptions(context.Background(), ports.SubscriptionFilter{SubscriptionID: "settings-openai-subscription"})
+	if err != nil {
+		t.Fatalf("ListSubscriptions() error = %v", err)
+	}
+	if len(subscriptions) != 0 {
+		t.Fatalf("len(subscriptions) = %d, want 0 when configured subscription sync is skipped", len(subscriptions))
+	}
+}
+
 type stubWatcher struct {
 	events chan service.FileWatchEvent
 	errors chan error

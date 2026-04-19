@@ -53,6 +53,33 @@ go build ./cmd/tui
 ./tui
 ```
 
+## 설치 스크립트 (Linux / macOS)
+
+GitHub Releases에 업로드된 OS별 바이너리를 바로 설치하려면:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Klassikcat/llm-budget-app/main/install.sh | bash
+```
+
+특정 버전을 설치하려면 첫 번째 인자로 태그를 넘길 수 있습니다. `v1`, `v1.2`, `v1.2.3` 형태를 그대로 지원합니다.
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Klassikcat/llm-budget-app/main/install.sh | bash -s -- v1.2.3
+```
+
+기본적으로 설치 후 `--bootstrap-only --db <resolved path>` 모드로 설정 파일과 SQLite 데이터베이스를 초기화합니다. 설치 스크립트 기준 기본 SQLite 경로는 다음과 같습니다.
+
+- **Linux**: `XDG_DATA_HOME/llmbudget/llmbudget.sqlite3` 또는 `~/.local/share/llmbudget/llmbudget.sqlite3`
+- **macOS**: `~/Library/Application Support/llmbudget/llmbudget.sqlite3`
+
+Windows 기본 경로는 앱 자체 기준으로 `%LOCALAPPDATA%\llmbudget\llmbudget.sqlite3`이지만, 현재 설치 스크립트는 Linux/macOS만 지원합니다.
+
+필요하면 아래 환경 변수로 위치를 재정의할 수 있습니다.
+
+- `LLMBUDGET_INSTALL_DIR`: 바이너리를 설치할 디렉터리
+- `LLMBUDGET_DB_PATH`: 부트스트랩할 SQLite 파일 경로
+- `LLMBUDGET_VERSION`: 설치할 릴리스 태그 (`latest`가 기본값)
+
 ### 데이터베이스 경로
 
 기본적으로 다음 위치에 저장됩니다:

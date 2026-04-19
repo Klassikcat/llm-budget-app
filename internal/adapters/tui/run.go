@@ -25,6 +25,7 @@ func run(ctx context.Context, args []string, stderr io.Writer) error {
 	flagSet.SetOutput(stderr)
 
 	dbPath := flagSet.String("db", "", "path to SQLite database")
+	bootstrapOnly := flagSet.Bool("bootstrap-only", false, "initialize config and SQLite database, then exit")
 	if err := flagSet.Parse(args); err != nil {
 		return err
 	}
@@ -34,11 +35,15 @@ func run(ctx context.Context, args []string, stderr io.Writer) error {
 		return err
 	}
 
-	graph, err := app.Start(ctx, app.Options{DatabasePath: resolvedDBPath})
+	graph, err := app.Start(ctx, app.Options{DatabasePath: resolvedDBPath, BootstrapOnly: *bootstrapOnly})
 	if err != nil {
 		return err
 	}
 	defer graph.Close()
+
+	if *bootstrapOnly {
+		return nil
+	}
 
 	period, err := domain.NewMonthlyPeriod(time.Now().UTC())
 	if err != nil {

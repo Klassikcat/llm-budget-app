@@ -28,6 +28,7 @@ type Options struct {
 	Paths               config.Paths
 	PathResolverOptions config.PathResolverOptions
 	DatabasePath        string
+	BootstrapOnly       bool
 	HomeDir             string
 	SecretStore         config.SecretStore
 	Notifier            ports.AlertNotifier
@@ -135,9 +136,6 @@ func Start(ctx context.Context, opts Options) (*Graph, error) {
 	insightExecutor := service.NewInsightExecutorService(detectors, store, store, store)
 	safeNotifier := &warningNotifier{base: opts.Notifier, warnings: recorder}
 	budgetMonitor := service.NewBudgetMonitorService(settings, store, store, store, store, store, safeNotifier)
-	for _, warning := range syncConfiguredSubscriptions(startupCtx, subscriptionService, settings, clock().UTC()) {
-		recorder.Add(warning)
-	}
 
 	graph := &Graph{
 		Paths:                    paths,
@@ -158,6 +156,14 @@ func Start(ctx context.Context, opts Options) (*Graph, error) {
 		warningRecorder:          recorder,
 		now:                      clock,
 		cancel:                   cancel,
+	}
+
+	if opts.BootstrapOnly {
+		return graph, nil
+	}
+
+	for _, warning := range syncConfiguredSubscriptions(startupCtx, subscriptionService, settings, clock().UTC()) {
+		recorder.Add(warning)
 	}
 
 	graph.openRouterCatalogSync, graph.openRouterActivitySync = buildOpenRouterServices(settings, secretStore, catalog, normalizer, recorder)
