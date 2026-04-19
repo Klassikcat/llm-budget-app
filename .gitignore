@@ -1,0 +1,20 @@
+# Build outputs
+/tui
+/gui
+/tui-test
+/gui.bin
+/build/
+
+# Go test and coverage artifacts
+*.test
+*.out
+*.prof
+coverage.out
+cover.out
+coverage.html
+
+# Editor and OS files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
