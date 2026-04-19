@@ -1,0 +1,86 @@
+name: TUI Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  ensure-release:
+    name: Ensure release for tag
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ensure GitHub release exists
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release for $TAG already exists."
+            exit 0
+          fi
+
+          if gh release create "$TAG" \
+            --verify-tag \
+            --title "$TAG" \
+            --notes "Automated TUI release artifacts for $TAG."; then
+            exit 0
+          fi
+
+          gh release view "$TAG" >/dev/null 2>&1
+
+  build-tui:
+    name: Build TUI (${{ matrix.os }})
+    needs: ensure-release
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
+    steps:
+      - name: Check out tagged commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.ref_name }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build TUI binary
+        shell: bash
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          mkdir -p dist
+
+          GOOS="$(go env GOOS)"
+          GOARCH="$(go env GOARCH)"
+          SAFE_TAG="$(printf '%s' "$TAG" | tr -c 'A-Za-z0-9._-' '-')"
+          BINARY_BASENAME="llm-budget-tracker-tui-${SAFE_TAG}-${GOOS}-${GOARCH}"
+
+          if [ "$GOOS" = "windows" ]; then
+            OUTPUT_PATH="dist/${BINARY_BASENAME}.exe"
+          else
+            OUTPUT_PATH="dist/${BINARY_BASENAME}"
+          fi
+
+          go build -trimpath -o "$OUTPUT_PATH" ./cmd/tui
+          echo "ASSET_PATH=$OUTPUT_PATH" >> "$GITHUB_ENV"
+
+      - name: Upload binary to GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release upload "$TAG" "$ASSET_PATH#$(basename "$ASSET_PATH")" --clobber
