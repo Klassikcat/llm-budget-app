@@ -214,10 +214,260 @@ func TestSubscriptionFormSubmitsThroughSharedService(t *testing.T) {
 	m = updated.(model)
 	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
 	m = updated.(model)
-	setFieldValue(&m.subscriptionForm.fields, "subscription_id", "sub-test")
-	setFieldValue(&m.subscriptionForm.fields, "provider", "openai")
-	setFieldValue(&m.subscriptionForm.fields, "plan_code", "chatgpt-plus")
-	setFieldValue(&m.subscriptionForm.fields, "plan_name", "ChatGPT Plus")
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updated.(model)
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyDown})
+	m = updated.(model)
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updated.(model)
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlS})
+	m = updated.(model)
+	if cmd == nil {
+		t.Fatal("expected submit command")
+	}
+	updated, _ = m.Update(cmd())
+	m = updated.(model)
+
+	if len(manager.saved) != 2 {
+		t.Fatalf("saved subscriptions = %d, want 2", len(manager.saved))
+	}
+	if got := manager.saved[0].SubscriptionID; got != "openai-chatgpt-plus-2026-04-01" {
+		t.Fatalf("SubscriptionID[0] = %q, want generated openai-chatgpt-plus-2026-04-01", got)
+	}
+	if got := manager.saved[1].SubscriptionID; got != "openai-chatgpt-pro-5x-2026-04-01" {
+		t.Fatalf("SubscriptionID[1] = %q, want generated openai-chatgpt-pro-5x-2026-04-01", got)
+	}
+	if got := manager.saved[0].PlanCode; got != "openai-chatgpt-plus" {
+		t.Fatalf("PlanCode[0] = %q, want generated openai-chatgpt-plus", got)
+	}
+	if got := manager.saved[1].PlanCode; got != "openai-chatgpt-pro-5x" {
+		t.Fatalf("PlanCode[1] = %q, want generated openai-chatgpt-pro-5x", got)
+	}
+	if !manager.saved[0].CreatedAt.IsZero() || !manager.saved[0].UpdatedAt.IsZero() || !manager.saved[1].CreatedAt.IsZero() || !manager.saved[1].UpdatedAt.IsZero() {
+		t.Fatalf("new subscription timestamps = %+v %+v, want zero audit timestamps before shared service save", manager.saved[0], manager.saved[1])
+	}
+	if m.mode != viewDashboard {
+		t.Fatalf("mode = %v, want dashboard after successful save", m.mode)
+	}
+}
+
+func TestSubscriptionFormViewShowsVisiblePresetChoices(t *testing.T) {
+	period, err := domain.NewMonthlyPeriod(time.Date(2026, 4, 17, 12, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("NewMonthlyPeriod() error = %v", err)
+	}
+	m := newModel(modelDependencies{loader: staticLoader{data: service.DashboardSnapshot{Period: period, Empty: true}}}, period)
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	m = updated.(model)
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	m = updated.(model)
+
+	view := m.View()
+	for _, needle := range []string{"Choose Subscription", "> [ ] ChatGPT Plus — $20.00 / renewal 1 / openai", "[ ] Claude Max 20x — $200.00 / renewal 1 / claude", "[ ] Others (Manual)"} {
+		if !strings.Contains(view, needle) {
+			t.Fatalf("View() missing %q\n%s", needle, view)
+		}
+	}
+}
+
+func TestDashboardCanOpenSubscriptionList(t *testing.T) {
+	period, err := domain.NewMonthlyPeriod(time.Date(2026, 4, 17, 12, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("NewMonthlyPeriod() error = %v", err)
+	}
+	manager := &captureSubscriptionManager{saved: []domain.Subscription{mustTUISubscription(t, domain.ProviderOpenAI, "ChatGPT Plus", 20, time.Date(2026, 4, 5, 0, 0, 0, 0, time.UTC))}}
+	m := newModel(modelDependencies{loader: staticLoader{data: service.DashboardSnapshot{Period: period, Empty: true}}, subscriptions: manager}, period)
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	m = updated.(model)
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}})
+	m = updated.(model)
+	if cmd == nil {
+		t.Fatal("expected load subscriptions command")
+	}
+	updated, _ = m.Update(cmd())
+	m = updated.(model)
+	if m.mode != viewSubscriptionList {
+		t.Fatalf("mode = %v, want subscription list", m.mode)
+	}
+	view := m.View()
+	for _, needle := range []string{"Subscriptions", "ChatGPT Plus", "openai", "d to disable"} {
+		if !strings.Contains(view, needle) {
+			t.Fatalf("View() missing %q\n%s", needle, view)
+		}
+	}
+}
+
+func TestSubscriptionListCanDisableSelectedSubscription(t *testing.T) {
+	period, err := domain.NewMonthlyPeriod(time.Date(2026, 4, 17, 12, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("NewMonthlyPeriod() error = %v", err)
+	}
+	target := mustTUISubscription(t, domain.ProviderOpenAI, "ChatGPT Plus", 20, time.Date(2026, 4, 5, 0, 0, 0, 0, time.UTC))
+	manager := &captureSubscriptionManager{saved: []domain.Subscription{target}}
+	m := newModel(modelDependencies{loader: staticLoader{data: service.DashboardSnapshot{Period: period, Empty: true}}, subscriptions: manager}, period)
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	m = updated.(model)
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}})
+	m = updated.(model)
+	updated, _ = m.Update(cmd())
+	m = updated.(model)
+	updated, cmd = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}})
+	m = updated.(model)
+	if cmd == nil {
+		t.Fatal("expected disable subscription command")
+	}
+	updated, _ = m.Update(cmd())
+	m = updated.(model)
+	if len(manager.disabled) != 1 || manager.disabled[0] != target.SubscriptionID {
+		t.Fatalf("disabled subscriptions = %#v, want %q", manager.disabled, target.SubscriptionID)
+	}
+	if !strings.Contains(m.View(), "> ") {
+		t.Fatalf("View() missing visible selection marker\n%s", m.View())
+	}
+}
+
+func TestSubscriptionFormStartsWithNoPresetSelected(t *testing.T) {
+	period, err := domain.NewMonthlyPeriod(time.Date(2026, 4, 17, 12, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("NewMonthlyPeriod() error = %v", err)
+	}
+	m := newModel(modelDependencies{loader: staticLoader{data: service.DashboardSnapshot{Period: period, Empty: true}}}, period)
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	m = updated.(model)
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	m = updated.(model)
+	view := m.View()
+	if !strings.Contains(view, "> [ ] ChatGPT Plus") {
+		t.Fatalf("View() missing empty initial selection\n%s", view)
+	}
+}
+
+func TestPresetCursorDoesNotChangeSelectedPresetUntilEnter(t *testing.T) {
+	period, err := domain.NewMonthlyPeriod(time.Date(2026, 4, 17, 12, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("NewMonthlyPeriod() error = %v", err)
+	}
+	m := newModel(modelDependencies{loader: staticLoader{data: service.DashboardSnapshot{Period: period, Empty: true}}}, period)
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	m = updated.(model)
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	m = updated.(model)
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyDown})
+	m = updated.(model)
+
+	view := m.View()
+	if !strings.Contains(view, "> [ ] ChatGPT Pro 5x") || strings.Contains(view, "[v] ChatGPT Plus") {
+		t.Fatalf("View() should show moved cursor with no selection before Enter\n%s", view)
+	}
+
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updated.(model)
+	view = m.View()
+	if !strings.Contains(view, "[v] ChatGPT Pro 5x") || strings.Contains(view, "[v] ChatGPT Plus") {
+		t.Fatalf("View() should select only hovered preset after Enter\n%s", view)
+	}
+}
+
+func TestEmptyDashboardHelpMentionsSubscriptionLookup(t *testing.T) {
+	period, err := domain.NewMonthlyPeriod(time.Date(2026, 4, 17, 12, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("NewMonthlyPeriod() error = %v", err)
+	}
+	m := newModel(modelDependencies{loader: staticLoader{data: service.DashboardSnapshot{Period: period, Empty: true}}}, period)
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	m = updated.(model)
+	updated, _ = m.Update(dashboardLoadedMsg{data: service.DashboardSnapshot{Period: period, Empty: true}})
+	m = updated.(model)
+
+	view := m.View()
+	if !strings.Contains(view, "l opens") || !strings.Contains(view, "subscriptions") {
+		t.Fatalf("View() missing subscription lookup help\n%s", view)
+	}
+}
+
+func TestSubscriptionFormResetsOnReopen(t *testing.T) {
+	period, err := domain.NewMonthlyPeriod(time.Date(2026, 4, 17, 12, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("NewMonthlyPeriod() error = %v", err)
+	}
+	m := newModel(modelDependencies{loader: staticLoader{data: service.DashboardSnapshot{Period: period, Empty: true}}}, period)
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	m = updated.(model)
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	m = updated.(model)
+	selectSubscriptionPreset(&m.subscriptionForm, "Others (Manual)")
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updated.(model)
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	m = updated.(model)
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	m = updated.(model)
+
+	view := m.View()
+	if !strings.Contains(view, "> [ ] ChatGPT Plus") {
+		t.Fatalf("View() missing reset initial selector state\n%s", view)
+	}
+	if strings.Contains(view, "Provider") || strings.Contains(view, "Plan Name") {
+		t.Fatalf("View() should not retain manual fields after reopen\n%s", view)
+	}
+}
+
+func TestSubscriptionFormDefaultsToCurrentBillingDate(t *testing.T) {
+	fixedNow := time.Date(2026, time.April, 19, 14, 30, 0, 0, time.UTC)
+	form := newSubscriptionFormAt(fixedNow)
+	values := collectFormValues(form.fields)
+
+	if got, want := values["renewal_day"], ""; got != want {
+		t.Fatalf("renewal_day default = %q, want %q", got, want)
+	}
+	if got, want := values["fee_usd"], ""; got != want {
+		t.Fatalf("fee_usd default = %q, want %q", got, want)
+	}
+
+	expectedStartsAt := time.Date(2026, time.April, 1, 0, 0, 0, 0, time.UTC).Format("2006-01-02")
+	if got := values["starts_at"]; got != expectedStartsAt {
+		t.Fatalf("starts_at default = %q, want %q", got, expectedStartsAt)
+	}
+}
+
+func TestSubscriptionFormRejectsRFC3339DateTime(t *testing.T) {
+	period, err := domain.NewMonthlyPeriod(time.Date(2026, 4, 17, 12, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("NewMonthlyPeriod() error = %v", err)
+	}
+	store, err := sqlite.Bootstrap(context.Background(), sqlite.Options{Path: filepath.Join(t.TempDir(), "subscription-inactive.sqlite3")})
+	if err != nil {
+		t.Fatalf("sqlite.Bootstrap() error = %v", err)
+	}
+	defer store.Close()
+	m := newModel(modelDependencies{loader: staticLoader{data: service.DashboardSnapshot{Period: period, Empty: true}}, subscriptions: service.NewSubscriptionService(store, store)}, period)
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	m = updated.(model)
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	m = updated.(model)
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updated.(model)
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlS})
+	m = updated.(model)
+	if cmd == nil {
+		t.Fatal("expected submit command for preset save without manual date entry")
+	}
+}
+
+func TestSubscriptionFormUsesPresetSpecificDefaults(t *testing.T) {
+	period, err := domain.NewMonthlyPeriod(time.Date(2026, 4, 17, 12, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("NewMonthlyPeriod() error = %v", err)
+	}
+	manager := &captureSubscriptionManager{}
+	m := newModel(modelDependencies{loader: staticLoader{data: service.DashboardSnapshot{Period: period, Empty: true}}, subscriptions: manager}, period)
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	m = updated.(model)
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	m = updated.(model)
+	selectSubscriptionPreset(&m.subscriptionForm, "Claude Max 20x")
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updated.(model)
 	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlS})
 	m = updated.(model)
 	if cmd == nil {
@@ -229,26 +479,119 @@ func TestSubscriptionFormSubmitsThroughSharedService(t *testing.T) {
 	if len(manager.saved) != 1 {
 		t.Fatalf("saved subscriptions = %d, want 1", len(manager.saved))
 	}
-	if got := manager.saved[0].SubscriptionID; got != "sub-test" {
-		t.Fatalf("SubscriptionID = %q, want sub-test", got)
+	if got := manager.saved[0].Provider; got != domain.ProviderClaude {
+		t.Fatalf("Provider = %q, want claude", got)
 	}
-	if m.mode != viewDashboard {
-		t.Fatalf("mode = %v, want dashboard after successful save", m.mode)
+	if got := manager.saved[0].FeeUSD; got != 200 {
+		t.Fatalf("FeeUSD = %v, want 200", got)
+	}
+	if got := manager.saved[0].RenewalDay; got != 1 {
+		t.Fatalf("RenewalDay = %d, want 1", got)
 	}
 }
 
-func TestSubscriptionFormDefaultsToCurrentBillingDate(t *testing.T) {
-	fixedNow := time.Date(2026, time.April, 19, 14, 30, 0, 0, time.UTC)
-	form := newSubscriptionFormAt(fixedNow)
-	values := collectFormValues(form.fields)
-
-	if got, want := values["renewal_day"], "5"; got != want {
-		t.Fatalf("renewal_day default = %q, want %q", got, want)
+func TestConfirmedPresetFormShowsStartsAtField(t *testing.T) {
+	period, err := domain.NewMonthlyPeriod(time.Date(2026, 4, 17, 12, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("NewMonthlyPeriod() error = %v", err)
 	}
+	m := newModel(modelDependencies{loader: staticLoader{data: service.DashboardSnapshot{Period: period, Empty: true}}}, period)
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	m = updated.(model)
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	m = updated.(model)
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updated.(model)
 
-	expectedStartsAt := time.Date(2026, time.April, 5, 14, 30, 0, 0, time.UTC).Format(time.RFC3339)
-	if got := values["starts_at"]; got != expectedStartsAt {
-		t.Fatalf("starts_at default = %q, want %q", got, expectedStartsAt)
+	view := m.View()
+	if strings.Contains(view, "Starts At (YYYY-MM-DD)") {
+		t.Fatalf("View() should not show starts_at in preset batch mode\n%s", view)
+	}
+	if strings.Contains(view, "Fee USD") || strings.Contains(view, "Active (true/false)") || strings.Contains(view, "Ends At") {
+		t.Fatalf("View() shows manual-only fields in preset mode\n%s", view)
+	}
+}
+
+func TestOthersManualShowsManualFields(t *testing.T) {
+	period, err := domain.NewMonthlyPeriod(time.Date(2026, 4, 17, 12, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("NewMonthlyPeriod() error = %v", err)
+	}
+	m := newModel(modelDependencies{loader: staticLoader{data: service.DashboardSnapshot{Period: period, Empty: true}}}, period)
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	m = updated.(model)
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	m = updated.(model)
+	selectSubscriptionPreset(&m.subscriptionForm, "Others (Manual)")
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updated.(model)
+
+	view := m.View()
+	for _, needle := range []string{"Provider", "Plan Name", "Renewal Day", "Fee USD", "Active (true/false)", "Ends At (YYYY-MM-DD, required when inactive)"} {
+		if !strings.Contains(view, needle) {
+			t.Fatalf("View() missing manual field %q\n%s", needle, view)
+		}
+	}
+}
+
+func TestSubscriptionFormPreservesEndsAtWhenActive(t *testing.T) {
+	period, err := domain.NewMonthlyPeriod(time.Date(2026, 4, 17, 12, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("NewMonthlyPeriod() error = %v", err)
+	}
+	manager := &captureSubscriptionManager{}
+	m := newModel(modelDependencies{loader: staticLoader{data: service.DashboardSnapshot{Period: period, Empty: true}}, subscriptions: manager}, period)
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	m = updated.(model)
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	m = updated.(model)
+	selectSubscriptionPreset(&m.subscriptionForm, "Others (Manual)")
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updated.(model)
+	setFieldValue(&m.subscriptionForm.fields, "provider", "custom-llm")
+	setFieldValue(&m.subscriptionForm.fields, "plan_name", "Custom Plan")
+	setFieldValue(&m.subscriptionForm.fields, "renewal_day", "5")
+	setFieldValue(&m.subscriptionForm.fields, "fee_usd", "20")
+	setFieldValue(&m.subscriptionForm.fields, "starts_at", "2026-04-05")
+	setFieldValue(&m.subscriptionForm.fields, "ends_at", "2026-05-01")
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlS})
+	m = updated.(model)
+	if cmd == nil {
+		t.Fatal("expected submit command")
+	}
+	updated, _ = m.Update(cmd())
+	m = updated.(model)
+
+	if len(manager.saved) != 1 {
+		t.Fatalf("saved subscriptions = %d, want 1", len(manager.saved))
+	}
+	if manager.saved[0].EndsAt == nil || manager.saved[0].EndsAt.Format("2006-01-02") != "2026-05-01" {
+		t.Fatalf("EndsAt = %v, want preserved 2026-05-01", manager.saved[0].EndsAt)
+	}
+}
+
+func TestSubscriptionFormRequiresEndsAtWhenInactive(t *testing.T) {
+	period, err := domain.NewMonthlyPeriod(time.Date(2026, 4, 17, 12, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("NewMonthlyPeriod() error = %v", err)
+	}
+	m := newModel(modelDependencies{loader: staticLoader{data: service.DashboardSnapshot{Period: period, Empty: true}}, subscriptions: &captureSubscriptionManager{}}, period)
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	m = updated.(model)
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	m = updated.(model)
+	selectSubscriptionPreset(&m.subscriptionForm, "Others (Manual)")
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updated.(model)
+	setFieldValue(&m.subscriptionForm.fields, "starts_at", "2026-04-05")
+	setFieldValue(&m.subscriptionForm.fields, "active", "false")
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlS})
+	m = updated.(model)
+	if cmd != nil {
+		t.Fatal("expected no submit command when inactive subscription is missing ends_at")
+	}
+	if got := m.subscriptionForm.errors["ends_at"]; got != "Inactive subscriptions require an ends_at date." {
+		t.Fatalf("ends_at error = %q, want Inactive subscriptions require an ends_at date.", got)
 	}
 }
 
@@ -266,13 +609,18 @@ func TestSubscriptionFormDefaultsContributeToCurrentMonthDashboardTotal(t *testi
 	}
 
 	form := newSubscriptionFormAt(fixedNow)
+	selectSubscriptionPreset(&form, "ChatGPT Plus")
+	confirmSubscriptionPreset(&form)
 	manager := service.NewSubscriptionService(store, store)
-	subscription, ok := form.parseSubscription(manager)
+	subscriptions, ok := form.parseSubscriptions(manager)
 	if !ok {
-		t.Fatalf("parseSubscription() errors = %#v", form.errors)
+		t.Fatalf("parseSubscriptions() errors = %#v", form.errors)
+	}
+	if len(subscriptions) != 1 {
+		t.Fatalf("len(parseSubscriptions()) = %d, want 1", len(subscriptions))
 	}
 
-	if err := manager.SaveSubscriptions(context.Background(), []domain.Subscription{subscription}); err != nil {
+	if err := manager.SaveSubscriptions(context.Background(), subscriptions); err != nil {
 		t.Fatalf("SaveSubscriptions() error = %v", err)
 	}
 
@@ -306,7 +654,8 @@ func (rejectingManualSaver) Save(context.Context, service.ManualAPIUsageEntryCom
 }
 
 type captureSubscriptionManager struct {
-	saved []domain.Subscription
+	saved    []domain.Subscription
+	disabled []string
 }
 
 func (c *captureSubscriptionManager) SaveSubscriptions(_ context.Context, subscriptions []domain.Subscription) error {
@@ -315,5 +664,52 @@ func (c *captureSubscriptionManager) SaveSubscriptions(_ context.Context, subscr
 }
 
 func (c *captureSubscriptionManager) ListSubscriptions(context.Context, ports.SubscriptionFilter) ([]domain.Subscription, error) {
-	return nil, nil
+	return c.saved, nil
+}
+
+func (c *captureSubscriptionManager) DisableSubscription(_ context.Context, subscriptionID string, _ time.Time) error {
+	c.disabled = append(c.disabled, subscriptionID)
+	return nil
+}
+
+func mustTUISubscription(t *testing.T, provider domain.ProviderName, planName string, fee float64, startsAt time.Time) domain.Subscription {
+	t.Helper()
+	planCode, err := domain.GenerateSubscriptionPlanCode(provider, planName)
+	if err != nil {
+		t.Fatalf("GenerateSubscriptionPlanCode() error = %v", err)
+	}
+	subscriptionID, err := domain.GenerateSubscriptionID(provider, planName, startsAt)
+	if err != nil {
+		t.Fatalf("GenerateSubscriptionID() error = %v", err)
+	}
+	subscription, err := domain.NewSubscription(domain.Subscription{
+		SubscriptionID: subscriptionID,
+		Provider:       provider,
+		PlanCode:       planCode,
+		PlanName:       planName,
+		RenewalDay:     1,
+		StartsAt:       startsAt,
+		FeeUSD:         fee,
+		IsActive:       true,
+		CreatedAt:      startsAt,
+		UpdatedAt:      startsAt,
+	})
+	if err != nil {
+		t.Fatalf("NewSubscription() error = %v", err)
+	}
+	return subscription
+}
+
+func selectSubscriptionPreset(form *subscriptionFormModel, label string) {
+	for i, option := range form.presetOptions {
+		if option.Label == label {
+			form.presetCursor = i
+			form.focus = 0
+			return
+		}
+	}
+}
+
+func confirmSubscriptionPreset(form *subscriptionFormModel) {
+	form.togglePresetSelection(form.presetCursor)
 }

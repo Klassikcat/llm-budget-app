@@ -26,6 +26,8 @@ func renderView(m *model, width int) string {
 		return renderManualEntryForm(m, width)
 	case viewSubscriptionForm:
 		return renderSubscriptionForm(m, width)
+	case viewSubscriptionList:
+		return renderSubscriptionList(m, width)
 	case viewInsightList:
 		return renderInsightList(m, width)
 	case viewInsightDetail:
@@ -87,7 +89,7 @@ func renderDashboard(m *model, width int) string {
 			renderSectionTitle(sectionOverview, m.focus, "Overview"),
 			truncateLine("No spend, budgets, or sessions are available for this month yet.", width),
 			truncateLine("Add subscription fees, manual API entries, or CLI session imports to populate the dashboard.", width),
-			helpStyle.Render("Navigation stays active: Tab/Shift+Tab changes sections, m and s open forms, i opens insights."),
+			helpStyle.Render("Navigation stays active: Tab/Shift+Tab changes sections, m and s open forms, l opens subscriptions, i opens insights."),
 		)
 		return strings.Join(sections, "\n\n")
 	}
@@ -120,16 +122,54 @@ func renderManualEntryForm(m *model, width int) string {
 func renderSubscriptionForm(m *model, width int) string {
 	sections := []string{
 		renderHeader(m, width),
-		renderFormFields("Subscription Fee Upsert", m.subscriptionForm.fields, m.subscriptionForm.focus, m.subscriptionForm.errors, width),
+		titleStyle.Render("Subscription Fee Upsert"),
+		renderSubscriptionPresetSelector(m.subscriptionForm, width),
+	}
+	if m.subscriptionForm.manualSelected() {
+		sections = append(sections, renderFormFieldsSubset(m.subscriptionForm.fields, m.subscriptionForm.visibleFieldIndices(), m.subscriptionForm.focus, m.subscriptionForm.errors, width))
+		sections = append(sections, mutedStyle.Render(truncateLine("Others (Manual) lets you enter a custom provider, plan, fee, and renewal day.", width)))
+	} else {
+		sections = append(sections, mutedStyle.Render(truncateLine(fmt.Sprintf("Selected presets: %d", m.subscriptionForm.selectedPresetCount()), width)))
+		sections = append(sections, mutedStyle.Render(truncateLine("Preset mode saves selected subscriptions with their default fee, renewal day, active status, and default start date.", width)))
+		sections = append(sections, mutedStyle.Render(truncateLine("Choose Others (Manual) if you need a custom provider, plan, fee, status, or end date.", width)))
 	}
 	if m.subscriptionForm.submitError != "" {
 		sections = append(sections, errorStyle.Render(truncateLine(m.subscriptionForm.submitError, width)))
 	}
-	sections = append(sections,
-		mutedStyle.Render(truncateLine("Use the same subscription ID to update an existing recurring fee record.", width)),
-		mutedStyle.Render(truncateLine("Inactive subscriptions require an ends_at timestamp so monthly rollups stop cleanly.", width)),
-	)
+	sections = append(sections, mutedStyle.Render(truncateLine("Move with ↑↓/←→, press Enter to toggle the highlighted option, then use Ctrl+S to save selected presets or the manual form.", width)))
+	if m.subscriptionForm.manualSelected() {
+		sections = append(sections, mutedStyle.Render(truncateLine("Inactive subscriptions require an ends_at date so monthly rollups stop cleanly.", width)))
+	}
 	return strings.Join(sections, "\n\n")
+}
+
+func renderSubscriptionList(m *model, width int) string {
+	sections := []string{renderHeader(m, width), titleStyle.Render("Subscriptions")}
+	if m.subscriptionsErr != nil {
+		sections = append(sections,
+			errorStyle.Render(truncateLine("Subscriptions failed to load", width)),
+			truncateLine(m.subscriptionsErr.Error(), width),
+			helpStyle.Render(truncateLine("Press r to retry or Esc to return.", width)),
+		)
+		return strings.Join(sections, "\n\n")
+	}
+	if len(m.subscriptionsList) == 0 {
+		sections = append(sections,
+			truncateLine("No saved subscriptions yet.", width),
+			mutedStyle.Render(truncateLine("Use s to add a preset or manual subscription fee record.", width)),
+		)
+		return strings.Join(sections, "\n\n")
+	}
+	for i, subscription := range m.subscriptionsList {
+		line := fmt.Sprintf("%s  %-10s  %-20s  %7s  renewal %2d  active %t", subscription.StartsAt.Format("2006-01-02"), subscription.Provider.String(), subscription.PlanName, formatUSD(subscription.FeeUSD), subscription.RenewalDay, subscription.IsActive)
+		if i == m.subscriptionSelection {
+			sections = append(sections, focusStyle.Render(truncateLine("> "+line, width)))
+			continue
+		}
+		sections = append(sections, truncateLine("  "+line, width))
+	}
+	sections = append(sections, mutedStyle.Render(truncateLine("Use ↑↓ to choose a subscription, d to disable it, r to refresh, or Esc to return.", width)))
+	return strings.Join(sections, "\n")
 }
 
 func renderInsightList(m *model, width int) string {
@@ -216,6 +256,7 @@ func renderHeader(m *model, width int) string {
 		viewDashboard:        "Dashboard",
 		viewManualEntryForm:  "Manual API Entry Form",
 		viewSubscriptionForm: "Subscription Fee Form",
+		viewSubscriptionList: "Subscriptions",
 		viewInsightList:      "Insight List",
 		viewInsightDetail:    "Insight Detail",
 		viewGraphs:           "Graphs",
@@ -350,8 +391,12 @@ func describeAlert(alert domain.AlertEvent) string {
 
 func renderHelp(mode viewMode) string {
 	switch mode {
-	case viewManualEntryForm, viewSubscriptionForm:
+	case viewManualEntryForm:
 		return "Tab/Shift+Tab move fields • Ctrl+S saves • Esc returns • q quits"
+	case viewSubscriptionForm:
+		return "Tab/Shift+Tab move fields • ↑↓/←→ choose preset • Enter toggles • Ctrl+S saves • Esc returns • q quits"
+	case viewSubscriptionList:
+		return "↑↓ choose subscription • d disables • r refreshes • Esc returns • q quits"
 	case viewInsightList:
 		return "↑↓ pick insight • Enter opens detail • Esc returns • r refresh • q quits"
 	case viewInsightDetail:
@@ -359,8 +404,51 @@ func renderHelp(mode viewMode) string {
 	case viewGraphs:
 		return "Tab/Shift+Tab or ←→/h/l cycle graph tabs • r refresh • Esc returns • q quits"
 	default:
-		return "Tab/Shift+Tab or ↑↓ move focus • m manual form • s subscription form • i insights • r refresh • q quit"
+		return "Tab/Shift+Tab or ↑↓ move focus • m manual form • s subscription form • l subscriptions • i insights • r refresh • q quit"
 	}
+}
+
+func renderSubscriptionPresetSelector(form subscriptionFormModel, width int) string {
+	lines := []string{titleStyle.Render("Choose Subscription")}
+	for i, option := range form.presetOptions {
+		cursor := "  "
+		if i == form.presetCursor {
+			cursor = "> "
+		}
+		selected := "[ ]"
+		if form.selectedPresetIndices[i] {
+			selected = "[v]"
+		}
+		line := option.Label
+		if option.Manual {
+			line = option.Label
+		} else {
+			line = fmt.Sprintf("%s — %s / renewal %d / %s", option.Label, formatUSD(option.FeeUSD), option.Renewal, option.Provider.String())
+		}
+		rendered := truncateLine(cursor+selected+" "+line, width)
+		if form.focus == 0 && i == form.presetCursor {
+			lines = append(lines, focusStyle.Render(rendered))
+		} else {
+			lines = append(lines, rendered)
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
+func renderFormFieldsSubset(fields []formField, indices []int, focus int, fieldErrors map[string]string, width int) string {
+	lines := []string{}
+	for pos, idx := range indices {
+		field := fields[idx]
+		label := titleStyle.Render(field.label)
+		if focus == pos+1 {
+			label = focusStyle.Render(field.label)
+		}
+		lines = append(lines, truncateLine(label, width), truncateLine("  "+field.input.View(), width))
+		if err := strings.TrimSpace(fieldErrors[field.key]); err != "" {
+			lines = append(lines, errorStyle.Render(truncateLine("  "+err, width)))
+		}
+	}
+	return strings.Join(lines, "\n")
 }
 
 func renderGraphTabs(active graphTab, width int) string {
