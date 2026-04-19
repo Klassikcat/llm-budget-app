@@ -33,6 +33,7 @@ type subscriptionManager interface {
 	SaveSubscriptions(ctx context.Context, subscriptions []domain.Subscription) error
 	ListSubscriptions(ctx context.Context, filter ports.SubscriptionFilter) ([]domain.Subscription, error)
 	DisableSubscription(ctx context.Context, subscriptionID string, disabledAt time.Time) error
+	DeleteSubscription(ctx context.Context, subscriptionID string) error
 }
 
 type insightLister interface {
@@ -110,7 +111,7 @@ type subscriptionsLoadedMsg struct {
 	err   error
 }
 
-type subscriptionDisabledMsg struct {
+type subscriptionDeletedMsg struct {
 	subscriptionID string
 	err            error
 }
@@ -312,14 +313,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.syncViewport()
 		return m, nil
-	case subscriptionDisabledMsg:
+	case subscriptionDeletedMsg:
 		if msg.err != nil {
 			m.subscriptionsErr = msg.err
-			m.statusMessage = fmt.Sprintf("Failed to disable subscription %s.", msg.subscriptionID)
+			m.statusMessage = fmt.Sprintf("Failed to delete subscription %s.", msg.subscriptionID)
 			m.syncViewport()
 			return m, nil
 		}
-		m.statusMessage = fmt.Sprintf("Disabled subscription %s.", msg.subscriptionID)
+		m.statusMessage = fmt.Sprintf("Deleted subscription %s.", msg.subscriptionID)
 		m.syncViewport()
 		return m, m.loadSubscriptions()
 	case tea.KeyMsg:
@@ -367,6 +368,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m model) View() string {
 	if !m.ready {
 		return "Loading dashboard shell..."
+	}
+	if usesViewportChrome(m.mode) {
+		contentWidth := m.width - 2
+		if contentWidth < 20 {
+			contentWidth = 20
+		}
+		chrome := renderViewportChrome(&m, contentWidth)
+		if chrome == "" {
+			return m.viewport.View()
+		}
+		return chrome + "\n" + m.viewport.View()
 	}
 	return m.viewport.View()
 }
@@ -442,9 +454,14 @@ func (m model) updateSubscriptionList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		target := m.subscriptionsList[m.subscriptionSelection]
-		m.statusMessage = fmt.Sprintf("Disabling subscription %s...", target.SubscriptionID)
+		if isSettingsManagedSubscription(target.SubscriptionID) {
+			m.statusMessage = fmt.Sprintf("Disable settings-managed subscription %s from Settings instead.", target.SubscriptionID)
+			m.syncViewport()
+			return m, nil
+		}
+		m.statusMessage = fmt.Sprintf("Deleting subscription %s...", target.SubscriptionID)
 		m.syncViewport()
-		return m, m.disableSubscription(target.SubscriptionID)
+		return m, m.deleteSubscription(target.SubscriptionID)
 	}
 	m.syncViewport()
 	return m, nil
@@ -480,12 +497,12 @@ func (m model) updateInsightList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.loading = true
 		m.syncViewport()
 		return m, m.loadAll()
-	case "up", "k":
+	case "up", "k", "h":
 		if len(m.insights) > 0 && m.insightSelection > 0 {
 			m.insightSelection--
 			m.selectedInsightID = m.insights[m.insightSelection].InsightID
 		}
-	case "down", "j":
+	case "down", "j", "l":
 		if len(m.insights) > 0 && m.insightSelection < len(m.insights)-1 {
 			m.insightSelection++
 			m.selectedInsightID = m.insights[m.insightSelection].InsightID
@@ -504,8 +521,21 @@ func (m model) updateInsightDetail(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "esc", "backspace":
 		m.mode = viewInsightList
+		m.syncViewport()
+		return m, nil
+	case "down", "j", "l":
+		m.viewport.LineDown(1)
+		return m, nil
+	case "up", "k", "h":
+		m.viewport.LineUp(1)
+		return m, nil
+	case "pgdown":
+		m.viewport.ViewDown()
+		return m, nil
+	case "pgup":
+		m.viewport.ViewUp()
+		return m, nil
 	}
-	m.syncViewport()
 	return m, nil
 }
 
@@ -606,15 +636,22 @@ func (m model) loadSubscriptions() tea.Cmd {
 	}
 }
 
-func (m model) disableSubscription(subscriptionID string) tea.Cmd {
+func (m model) deleteSubscription(subscriptionID string) tea.Cmd {
 	return func() tea.Msg {
 		if m.deps.subscriptions == nil {
-			return subscriptionDisabledMsg{subscriptionID: subscriptionID}
+			return subscriptionDeletedMsg{subscriptionID: subscriptionID}
 		}
-		now := time.Now().UTC()
-		err := m.deps.subscriptions.DisableSubscription(context.Background(), subscriptionID, now)
-		return subscriptionDisabledMsg{subscriptionID: subscriptionID, err: err}
+		err := m.deps.subscriptions.DeleteSubscription(context.Background(), subscriptionID)
+		return subscriptionDeletedMsg{subscriptionID: subscriptionID, err: err}
 	}
+}
+
+func isSettingsManagedSubscription(subscriptionID string) bool {
+	return strings.HasPrefix(strings.TrimSpace(subscriptionID), "settings-")
+}
+
+func usesViewportChrome(mode viewMode) bool {
+	return mode == viewInsightList || mode == viewInsightDetail
 }
 
 func (m model) loadAll() tea.Cmd {
@@ -634,11 +671,71 @@ func (m *model) syncViewport() {
 	if contentHeight < 6 {
 		contentHeight = 6
 	}
+	if usesViewportChrome(m.mode) {
+		chromeLines := strings.Count(renderViewportChrome(m, contentWidth), "\n") + 1
+		contentHeight -= chromeLines
+		if contentHeight < 3 {
+			contentHeight = 3
+		}
+	}
 
+	previousOffset := m.viewport.YOffset
 	m.viewport.Width = contentWidth
 	m.viewport.Height = contentHeight
-	m.viewport.SetContent(renderView(m, contentWidth))
+	if usesViewportChrome(m.mode) {
+		m.viewport.SetContent(renderViewportBody(m, contentWidth))
+	} else {
+		m.viewport.SetContent(renderView(m, contentWidth))
+	}
+	if m.mode == viewInsightDetail {
+		maxOffset := max(0, m.viewport.TotalLineCount()-m.viewport.Height)
+		if previousOffset > maxOffset {
+			previousOffset = maxOffset
+		}
+		m.viewport.SetYOffset(previousOffset)
+		return
+	}
+	if m.mode == viewInsightList {
+		m.viewport.SetYOffset(m.insightListViewportOffset(contentWidth, previousOffset))
+		return
+	}
 	m.viewport.GotoTop()
+}
+
+func renderViewportBody(m *model, width int) string {
+	switch m.mode {
+	case viewInsightList:
+		return renderInsightListBody(m, width)
+	case viewInsightDetail:
+		return renderInsightDetailBody(m, width)
+	default:
+		return renderView(m, width)
+	}
+}
+
+func (m model) insightListViewportOffset(contentWidth int, currentOffset int) int {
+	if len(m.insights) == 0 {
+		return 0
+	}
+
+	selectedLine := insightListSelectionLine(m, contentWidth)
+	if selectedLine < currentOffset {
+		currentOffset = selectedLine
+	}
+	if selectedLine >= currentOffset+m.viewport.Height {
+		currentOffset = selectedLine - m.viewport.Height + 1
+	}
+
+	maxOffset := max(0, m.viewport.TotalLineCount()-m.viewport.Height)
+	if currentOffset > maxOffset {
+		currentOffset = maxOffset
+	}
+	return max(0, currentOffset)
+}
+
+func insightListSelectionLine(m model, width int) int {
+	_ = width
+	return m.insightSelection
 }
 
 func newManualEntryForm() manualEntryFormModel {

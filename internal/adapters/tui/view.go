@@ -29,13 +29,24 @@ func renderView(m *model, width int) string {
 	case viewSubscriptionList:
 		return renderSubscriptionList(m, width)
 	case viewInsightList:
-		return renderInsightList(m, width)
+		return strings.Join([]string{renderViewportChrome(m, width), renderInsightListBody(m, width)}, "\n")
 	case viewInsightDetail:
-		return renderInsightDetail(m, width)
+		return strings.Join([]string{renderViewportChrome(m, width), renderInsightDetailBody(m, width)}, "\n")
 	case viewGraphs:
 		return renderGraphs(m, width)
 	default:
 		return renderDashboard(m, width)
+	}
+}
+
+func renderViewportChrome(m *model, width int) string {
+	switch m.mode {
+	case viewInsightList:
+		return strings.Join([]string{renderHeader(m, width), titleStyle.Render("Insights")}, "\n")
+	case viewInsightDetail:
+		return strings.Join([]string{renderHeader(m, width), titleStyle.Render("Insight Detail")}, "\n")
+	default:
+		return ""
 	}
 }
 
@@ -89,7 +100,7 @@ func renderDashboard(m *model, width int) string {
 			renderSectionTitle(sectionOverview, m.focus, "Overview"),
 			truncateLine("No spend, budgets, or sessions are available for this month yet.", width),
 			truncateLine("Add subscription fees, manual API entries, or CLI session imports to populate the dashboard.", width),
-			helpStyle.Render("Navigation stays active: Tab/Shift+Tab changes sections, m and s open forms, l opens subscriptions, i opens insights."),
+			helpStyle.Render("Navigation stays active: Tab/Shift+Tab changes sections, m and s open forms, l opens subscriptions, i opens insights, g opens graphs."),
 		)
 		return strings.Join(sections, "\n\n")
 	}
@@ -168,12 +179,12 @@ func renderSubscriptionList(m *model, width int) string {
 		}
 		sections = append(sections, truncateLine("  "+line, width))
 	}
-	sections = append(sections, mutedStyle.Render(truncateLine("Use ↑↓ to choose a subscription, d to disable it, r to refresh, or Esc to return.", width)))
+	sections = append(sections, mutedStyle.Render(truncateLine("Use ↑↓ to choose a subscription, d to delete it, r to refresh, or Esc to return.", width)))
 	return strings.Join(sections, "\n")
 }
 
-func renderInsightList(m *model, width int) string {
-	lines := []string{renderHeader(m, width), titleStyle.Render("Insights")}
+func renderInsightListBody(m *model, width int) string {
+	lines := []string{}
 	if len(m.insights) == 0 {
 		lines = append(lines,
 			truncateLine("No detector findings are stored for this month yet.", width),
@@ -193,9 +204,9 @@ func renderInsightList(m *model, width int) string {
 	return strings.Join(lines, "\n")
 }
 
-func renderInsightDetail(m *model, width int) string {
+func renderInsightDetailBody(m *model, width int) string {
 	insight, ok := currentInsight(*m)
-	lines := []string{renderHeader(m, width), titleStyle.Render("Insight Detail")}
+	lines := []string{}
 	if !ok {
 		lines = append(lines, truncateLine("No insight is selected.", width))
 		return strings.Join(lines, "\n\n")
@@ -396,15 +407,15 @@ func renderHelp(mode viewMode) string {
 	case viewSubscriptionForm:
 		return "Tab/Shift+Tab move fields • ↑↓/←→ choose preset • Enter toggles • Ctrl+S saves • Esc returns • q quits"
 	case viewSubscriptionList:
-		return "↑↓ choose subscription • d disables • r refreshes • Esc returns • q quits"
+		return "↑↓ choose subscription • d deletes • r refreshes • Esc returns • q quits"
 	case viewInsightList:
-		return "↑↓ pick insight • Enter opens detail • Esc returns • r refresh • q quits"
+		return "↑↓ or h/j/k/l pick insight • Enter opens detail • Esc returns • r refresh • q quits"
 	case viewInsightDetail:
-		return "Esc returns to the insight list • q quits"
+		return "↑↓ or h/j/k/l scroll • PgUp/PgDn page • Esc returns • q quits"
 	case viewGraphs:
 		return "Tab/Shift+Tab or ←→/h/l cycle graph tabs • r refresh • Esc returns • q quits"
 	default:
-		return "Tab/Shift+Tab or ↑↓ move focus • m manual form • s subscription form • l subscriptions • i insights • r refresh • q quit"
+		return "Tab/Shift+Tab or ↑↓ move focus • m manual form • s subscription form • l subscriptions • i insights • g graphs • r refresh • q quit"
 	}
 }
 

@@ -2,6 +2,7 @@ package tui
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -57,13 +58,13 @@ func TestModelRendersDashboardSectionsAndNavigation(t *testing.T) {
 	}}
 	m := newModel(modelDependencies{loader: loader}, period)
 
-	updated, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 140, Height: 30})
 	m = updated.(model)
 	updated, _ = m.Update(dashboardLoadedMsg{data: loader.data})
 	m = updated.(model)
 
 	view := m.View()
-	for _, needle := range []string{"Monthly Totals", "Provider Summary", "Budgets", "Recent Sessions", "Monthly total:"} {
+	for _, needle := range []string{"Monthly Totals", "Provider Summary", "Budgets", "Recent Sessions", "Monthly total:", "g graphs"} {
 		if !strings.Contains(view, needle) {
 			t.Fatalf("View() missing %q\n%s", needle, view)
 		}
@@ -143,7 +144,7 @@ func TestModelShowsAlertBannerAndInsightDrillDown(t *testing.T) {
 	m := newModel(modelDependencies{loader: staticLoader{data: service.DashboardSnapshot{Period: period, Empty: true}}}, period)
 	m.alerts = []domain.AlertEvent{alert}
 	m.insights = []domain.Insight{insight}
-	updated, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 140, Height: 30})
 	m = updated.(model)
 	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'i'}})
 	m = updated.(model)
@@ -156,6 +157,259 @@ func TestModelShowsAlertBannerAndInsightDrillDown(t *testing.T) {
 			t.Fatalf("View() missing %q\n%s", needle, view)
 		}
 	}
+}
+
+func TestInsightDetailScrollKeysMoveViewport(t *testing.T) {
+	period, err := domain.NewMonthlyPeriod(time.Date(2026, 4, 17, 12, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("NewMonthlyPeriod() error = %v", err)
+	}
+
+	hashes := make([]domain.InsightHash, 0, 24)
+	for i := range 24 {
+		hash, err := domain.NewInsightHash("target_hash", "sha256:scroll-"+time.Date(2026, 4, 17, 12, 0, 0, 0, time.UTC).Add(time.Duration(i)*time.Minute).Format("150405"))
+		if err != nil {
+			t.Fatalf("NewInsightHash() error = %v", err)
+		}
+		hashes = append(hashes, hash)
+	}
+	payload, err := domain.NewInsightPayload([]string{"session-1"}, []string{"usage-1"}, hashes, nil, nil)
+	if err != nil {
+		t.Fatalf("NewInsightPayload() error = %v", err)
+	}
+	insight, err := domain.NewInsight(domain.Insight{
+		InsightID:  "insight-scroll",
+		Category:   domain.DetectorToolSchemaBloat,
+		Severity:   domain.InsightSeverityHigh,
+		DetectedAt: period.StartAt.Add(24 * time.Hour),
+		Period:     period,
+		Payload:    payload,
+	})
+	if err != nil {
+		t.Fatalf("NewInsight() error = %v", err)
+	}
+
+	m := newModel(modelDependencies{loader: staticLoader{data: service.DashboardSnapshot{Period: period, Empty: true}}}, period)
+	m.insights = []domain.Insight{insight}
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 90, Height: 12})
+	m = updated.(model)
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'i'}})
+	m = updated.(model)
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updated.(model)
+
+	if got := m.viewport.YOffset; got != 0 {
+		t.Fatalf("initial viewport.YOffset = %d, want 0", got)
+	}
+	if !strings.Contains(m.View(), "Insight Detail") {
+		t.Fatalf("View() missing initial insight detail header\n%s", m.View())
+	}
+
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyDown})
+	m = updated.(model)
+	if got := m.viewport.YOffset; got < 1 {
+		t.Fatalf("viewport.YOffset after KeyDown = %d, want >= 1", got)
+	}
+
+	previousOffset := m.viewport.YOffset
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}})
+	m = updated.(model)
+	if got := m.viewport.YOffset; got <= previousOffset {
+		t.Fatalf("viewport.YOffset after l = %d, want > %d", got, previousOffset)
+	}
+	if !strings.Contains(m.View(), "h/j/k/l scroll") {
+		t.Fatalf("View() missing detail scroll help\n%s", m.View())
+	}
+	for i := 0; i < 12; i++ {
+		updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyDown})
+		m = updated.(model)
+	}
+	if !strings.Contains(m.View(), "sha256:scroll") {
+		t.Fatalf("View() missing scrolled hash content\n%s", m.View())
+	}
+}
+
+func TestInsightDetailPreservesScrollOffsetAcrossViewportSync(t *testing.T) {
+	m := newScrolledInsightDetailModel(t)
+
+	for range 6 {
+		updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyDown})
+		m = updated.(model)
+	}
+	before := m.viewport.YOffset
+	if before == 0 {
+		t.Fatal("expected non-zero viewport offset before sync")
+	}
+
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 90, Height: 12})
+	m = updated.(model)
+	if got := m.viewport.YOffset; got != before {
+		t.Fatalf("viewport.YOffset after WindowSizeMsg = %d, want %d", got, before)
+	}
+
+	updated, _ = m.Update(insightsLoadedMsg{insights: m.insights})
+	m = updated.(model)
+	if got := m.viewport.YOffset; got != before {
+		t.Fatalf("viewport.YOffset after insightsLoadedMsg = %d, want %d", got, before)
+	}
+}
+
+func TestInsightDetailSupportsPageAndReverseScrollKeys(t *testing.T) {
+	m := newScrolledInsightDetailModel(t)
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyPgDown})
+	m = updated.(model)
+	pageOffset := m.viewport.YOffset
+	if pageOffset == 0 {
+		t.Fatal("expected pgdown to move viewport")
+	}
+
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'h'}})
+	m = updated.(model)
+	if got := m.viewport.YOffset; got >= pageOffset {
+		t.Fatalf("viewport.YOffset after h = %d, want < %d", got, pageOffset)
+	}
+
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyPgUp})
+	m = updated.(model)
+	if got := m.viewport.YOffset; got != 0 {
+		t.Fatalf("viewport.YOffset after pgup = %d, want 0", got)
+	}
+}
+
+func TestInsightListKeepsSelectionVisibleWhenScrollingDown(t *testing.T) {
+	m := newInsightListModel(t, 20)
+
+	for range 12 {
+		updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyDown})
+		m = updated.(model)
+	}
+
+	if got := m.insightSelection; got != 12 {
+		t.Fatalf("insightSelection = %d, want 12", got)
+	}
+	if got := m.viewport.YOffset; got == 0 {
+		t.Fatalf("viewport.YOffset = %d, want > 0 once selection moves off-screen", got)
+	}
+	selectedInsight := m.insights[m.insightSelection]
+	if !strings.Contains(m.View(), selectedInsight.InsightID) {
+		t.Fatalf("View() missing selected insight %q\n%s", selectedInsight.InsightID, m.View())
+	}
+	for _, needle := range []string{"Insight List", "Alert status:", "h/j/k/l pick insight", "Insights"} {
+		if !strings.Contains(m.View(), needle) {
+			t.Fatalf("View() missing fixed insight chrome %q\n%s", needle, m.View())
+		}
+	}
+}
+
+func TestInsightListVimKeysScrollSelectionAndViewport(t *testing.T) {
+	m := newInsightListModel(t, 18)
+	if !strings.Contains(m.View(), "h/j/k/l pick insight") {
+		t.Fatalf("View() missing insight list vim help before scrolling\n%s", m.View())
+	}
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}})
+	m = updated.(model)
+	if got := m.insightSelection; got != 1 {
+		t.Fatalf("insightSelection after l = %d, want 1", got)
+	}
+
+	for range 10 {
+		updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}})
+		m = updated.(model)
+	}
+	if got := m.viewport.YOffset; got == 0 {
+		t.Fatalf("viewport.YOffset after repeated l = %d, want > 0", got)
+	}
+
+	previousSelection := m.insightSelection
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'h'}})
+	m = updated.(model)
+	if got := m.insightSelection; got != previousSelection-1 {
+		t.Fatalf("insightSelection after h = %d, want %d", got, previousSelection-1)
+	}
+	selectedInsight := m.insights[m.insightSelection]
+	if !strings.Contains(m.View(), selectedInsight.InsightID) {
+		t.Fatalf("View() missing selected insight %q after h\n%s", selectedInsight.InsightID, m.View())
+	}
+}
+
+func newScrolledInsightDetailModel(t *testing.T) model {
+	t.Helper()
+
+	period, err := domain.NewMonthlyPeriod(time.Date(2026, 4, 17, 12, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("NewMonthlyPeriod() error = %v", err)
+	}
+
+	hashes := make([]domain.InsightHash, 0, 24)
+	for i := range 24 {
+		hash, err := domain.NewInsightHash("target_hash", "sha256:scroll-"+time.Date(2026, 4, 17, 12, 0, 0, 0, time.UTC).Add(time.Duration(i)*time.Minute).Format("150405"))
+		if err != nil {
+			t.Fatalf("NewInsightHash() error = %v", err)
+		}
+		hashes = append(hashes, hash)
+	}
+	payload, err := domain.NewInsightPayload([]string{"session-1"}, []string{"usage-1"}, hashes, nil, nil)
+	if err != nil {
+		t.Fatalf("NewInsightPayload() error = %v", err)
+	}
+	insight, err := domain.NewInsight(domain.Insight{
+		InsightID:  "insight-scroll",
+		Category:   domain.DetectorToolSchemaBloat,
+		Severity:   domain.InsightSeverityHigh,
+		DetectedAt: period.StartAt.Add(24 * time.Hour),
+		Period:     period,
+		Payload:    payload,
+	})
+	if err != nil {
+		t.Fatalf("NewInsight() error = %v", err)
+	}
+
+	m := newModel(modelDependencies{loader: staticLoader{data: service.DashboardSnapshot{Period: period, Empty: true}}}, period)
+	m.insights = []domain.Insight{insight}
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 90, Height: 12})
+	m = updated.(model)
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'i'}})
+	m = updated.(model)
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	return updated.(model)
+}
+
+func newInsightListModel(t *testing.T, insightCount int) model {
+	t.Helper()
+
+	period, err := domain.NewMonthlyPeriod(time.Date(2026, 4, 17, 12, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("NewMonthlyPeriod() error = %v", err)
+	}
+
+	insights := make([]domain.Insight, 0, insightCount)
+	for i := range insightCount {
+		payload, err := domain.NewInsightPayload([]string{fmt.Sprintf("session-%d", i)}, nil, nil, nil, nil)
+		if err != nil {
+			t.Fatalf("NewInsightPayload() error = %v", err)
+		}
+		insight, err := domain.NewInsight(domain.Insight{
+			InsightID:  fmt.Sprintf("insight-%02d", i),
+			Category:   domain.DetectorToolSchemaBloat,
+			Severity:   domain.InsightSeverityHigh,
+			DetectedAt: period.StartAt.Add(time.Duration(i) * time.Hour),
+			Period:     period,
+			Payload:    payload,
+		})
+		if err != nil {
+			t.Fatalf("NewInsight() error = %v", err)
+		}
+		insights = append(insights, insight)
+	}
+
+	m := newModel(modelDependencies{loader: staticLoader{data: service.DashboardSnapshot{Period: period, Empty: true}}}, period)
+	m.insights = insights
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 12})
+	m = updated.(model)
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'i'}})
+	return updated.(model)
 }
 
 func TestManualEntryValidationPreservesAlertBanner(t *testing.T) {
@@ -290,14 +544,14 @@ func TestDashboardCanOpenSubscriptionList(t *testing.T) {
 		t.Fatalf("mode = %v, want subscription list", m.mode)
 	}
 	view := m.View()
-	for _, needle := range []string{"Subscriptions", "ChatGPT Plus", "openai", "d to disable"} {
+	for _, needle := range []string{"Subscriptions", "ChatGPT Plus", "openai", "d to delete"} {
 		if !strings.Contains(view, needle) {
 			t.Fatalf("View() missing %q\n%s", needle, view)
 		}
 	}
 }
 
-func TestSubscriptionListCanDisableSelectedSubscription(t *testing.T) {
+func TestSubscriptionListCanDeleteSelectedSubscription(t *testing.T) {
 	period, err := domain.NewMonthlyPeriod(time.Date(2026, 4, 17, 12, 0, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatalf("NewMonthlyPeriod() error = %v", err)
@@ -314,15 +568,53 @@ func TestSubscriptionListCanDisableSelectedSubscription(t *testing.T) {
 	updated, cmd = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}})
 	m = updated.(model)
 	if cmd == nil {
-		t.Fatal("expected disable subscription command")
+		t.Fatal("expected delete subscription command")
 	}
 	updated, _ = m.Update(cmd())
 	m = updated.(model)
 	if len(manager.disabled) != 1 || manager.disabled[0] != target.SubscriptionID {
-		t.Fatalf("disabled subscriptions = %#v, want %q", manager.disabled, target.SubscriptionID)
+		t.Fatalf("deleted subscriptions = %#v, want %q", manager.disabled, target.SubscriptionID)
 	}
 	if !strings.Contains(m.View(), "> ") {
 		t.Fatalf("View() missing visible selection marker\n%s", m.View())
+	}
+}
+
+func TestSubscriptionListDoesNotDeleteSettingsManagedSubscription(t *testing.T) {
+	period, err := domain.NewMonthlyPeriod(time.Date(2026, 4, 17, 12, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("NewMonthlyPeriod() error = %v", err)
+	}
+	target := mustSubscription(t, domain.Subscription{
+		SubscriptionID: "settings-openai-subscription",
+		Provider:       domain.ProviderOpenAI,
+		PlanCode:       "chatgpt-plus",
+		PlanName:       "ChatGPT Plus",
+		RenewalDay:     5,
+		StartsAt:       time.Date(2026, 4, 5, 0, 0, 0, 0, time.UTC),
+		FeeUSD:         20,
+		IsActive:       true,
+		CreatedAt:      time.Date(2026, 4, 5, 0, 0, 0, 0, time.UTC),
+		UpdatedAt:      time.Date(2026, 4, 5, 0, 0, 0, 0, time.UTC),
+	})
+	manager := &captureSubscriptionManager{saved: []domain.Subscription{target}}
+	m := newModel(modelDependencies{loader: staticLoader{data: service.DashboardSnapshot{Period: period, Empty: true}}, subscriptions: manager}, period)
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	m = updated.(model)
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}})
+	m = updated.(model)
+	updated, _ = m.Update(cmd())
+	m = updated.(model)
+	updated, cmd = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}})
+	m = updated.(model)
+	if cmd != nil {
+		t.Fatal("expected no delete command for settings-managed subscription")
+	}
+	if len(manager.disabled) != 0 {
+		t.Fatalf("deleted subscriptions = %#v, want none", manager.disabled)
+	}
+	if !strings.Contains(m.statusMessage, "Disable settings-managed subscription") {
+		t.Fatalf("statusMessage = %q, want settings guidance", m.statusMessage)
 	}
 }
 
@@ -380,8 +672,10 @@ func TestEmptyDashboardHelpMentionsSubscriptionLookup(t *testing.T) {
 	m = updated.(model)
 
 	view := m.View()
-	if !strings.Contains(view, "l opens") || !strings.Contains(view, "subscriptions") {
-		t.Fatalf("View() missing subscription lookup help\n%s", view)
+	for _, needle := range []string{"l opens", "subscriptions", "g opens graphs"} {
+		if !strings.Contains(view, needle) {
+			t.Fatalf("View() missing %q in empty-state help\n%s", needle, view)
+		}
 	}
 }
 
@@ -440,7 +734,7 @@ func TestSubscriptionFormRejectsRFC3339DateTime(t *testing.T) {
 		t.Fatalf("sqlite.Bootstrap() error = %v", err)
 	}
 	defer store.Close()
-	m := newModel(modelDependencies{loader: staticLoader{data: service.DashboardSnapshot{Period: period, Empty: true}}, subscriptions: service.NewSubscriptionService(store, store)}, period)
+	m := newModel(modelDependencies{loader: staticLoader{data: service.DashboardSnapshot{Period: period, Empty: true}}, subscriptions: newTestSubscriptionManager(store)}, period)
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 	m = updated.(model)
 	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
@@ -611,7 +905,7 @@ func TestSubscriptionFormDefaultsContributeToCurrentMonthDashboardTotal(t *testi
 	form := newSubscriptionFormAt(fixedNow)
 	selectSubscriptionPreset(&form, "ChatGPT Plus")
 	confirmSubscriptionPreset(&form)
-	manager := service.NewSubscriptionService(store, store)
+	manager := newTestSubscriptionManager(store)
 	subscriptions, ok := form.parseSubscriptions(manager)
 	if !ok {
 		t.Fatalf("parseSubscriptions() errors = %#v", form.errors)
@@ -658,6 +952,10 @@ type captureSubscriptionManager struct {
 	disabled []string
 }
 
+type testSubscriptionManager struct {
+	service *service.SubscriptionService
+}
+
 func (c *captureSubscriptionManager) SaveSubscriptions(_ context.Context, subscriptions []domain.Subscription) error {
 	c.saved = append(c.saved, subscriptions...)
 	return nil
@@ -667,9 +965,33 @@ func (c *captureSubscriptionManager) ListSubscriptions(context.Context, ports.Su
 	return c.saved, nil
 }
 
-func (c *captureSubscriptionManager) DisableSubscription(_ context.Context, subscriptionID string, _ time.Time) error {
+func (c *captureSubscriptionManager) DeleteSubscription(_ context.Context, subscriptionID string) error {
 	c.disabled = append(c.disabled, subscriptionID)
 	return nil
+}
+
+func (c *captureSubscriptionManager) DisableSubscription(_ context.Context, subscriptionID string, _ time.Time) error {
+	return c.DeleteSubscription(context.Background(), subscriptionID)
+}
+
+func newTestSubscriptionManager(store *sqlite.Store) *testSubscriptionManager {
+	return &testSubscriptionManager{service: service.NewSubscriptionService(store, store)}
+}
+
+func (m *testSubscriptionManager) SaveSubscriptions(ctx context.Context, subscriptions []domain.Subscription) error {
+	return m.service.SaveSubscriptions(ctx, subscriptions)
+}
+
+func (m *testSubscriptionManager) ListSubscriptions(ctx context.Context, filter ports.SubscriptionFilter) ([]domain.Subscription, error) {
+	return m.service.ListSubscriptions(ctx, filter)
+}
+
+func (m *testSubscriptionManager) DeleteSubscription(ctx context.Context, subscriptionID string) error {
+	return m.service.DeleteSubscription(ctx, subscriptionID)
+}
+
+func (m *testSubscriptionManager) DisableSubscription(ctx context.Context, subscriptionID string, _ time.Time) error {
+	return m.service.DisableSubscription(ctx, subscriptionID, time.Time{})
 }
 
 func mustTUISubscription(t *testing.T, provider domain.ProviderName, planName string, fee float64, startsAt time.Time) domain.Subscription {
