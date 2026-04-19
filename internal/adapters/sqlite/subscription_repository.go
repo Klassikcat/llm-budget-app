@@ -130,6 +130,32 @@ func (s *Store) ListSubscriptions(ctx context.Context, filter ports.Subscription
 	return subscriptions, nil
 }
 
+func (s *Store) DeleteSubscription(ctx context.Context, subscriptionID string) error {
+	if s == nil || s.db == nil {
+		return fmt.Errorf("sqlite store is not initialized")
+	}
+
+	return s.WithTx(ctx, nil, func(tx *sql.Tx) error {
+		result, err := tx.ExecContext(ctx, `
+			DELETE FROM subscriptions
+			WHERE id = ?
+		`, strings.TrimSpace(subscriptionID))
+		if err != nil {
+			return err
+		}
+
+		rowsAffected, err := result.RowsAffected()
+		if err != nil {
+			return err
+		}
+		if rowsAffected == 0 {
+			return sql.ErrNoRows
+		}
+
+		return nil
+	})
+}
+
 func (s *Store) DisableSubscription(ctx context.Context, subscriptionID string, disabledAt time.Time) error {
 	if s == nil || s.db == nil {
 		return fmt.Errorf("sqlite store is not initialized")

@@ -48,6 +48,30 @@ func TestSubscriptionRepositoryRoundTripAndOrdering(t *testing.T) {
 	}
 }
 
+func TestSubscriptionRepositoryDeleteSubscriptionRemovesRow(t *testing.T) {
+	store := mustBootstrapStore(t, filepath.Join(t.TempDir(), "subscription-delete.sqlite3"), Options{})
+	defer store.Close()
+
+	startsAt := time.Date(2026, time.April, 1, 0, 0, 0, 0, time.UTC)
+	subscription := mustSubscriptionForRepository(t, domain.ProviderOpenAI, "ChatGPT Plus", 20, startsAt)
+
+	if err := store.UpsertSubscriptions(context.Background(), []domain.Subscription{subscription}); err != nil {
+		t.Fatalf("UpsertSubscriptions() error = %v", err)
+	}
+
+	if err := store.DeleteSubscription(context.Background(), subscription.SubscriptionID); err != nil {
+		t.Fatalf("DeleteSubscription() error = %v", err)
+	}
+
+	items, err := store.ListSubscriptions(context.Background(), ports.SubscriptionFilter{SubscriptionID: subscription.SubscriptionID})
+	if err != nil {
+		t.Fatalf("ListSubscriptions() after delete error = %v", err)
+	}
+	if got := len(items); got != 0 {
+		t.Fatalf("len(ListSubscriptions() after delete) = %d, want 0", got)
+	}
+}
+
 func mustSubscriptionForRepository(t *testing.T, provider domain.ProviderName, planName string, fee float64, startsAt time.Time) domain.Subscription {
 	t.Helper()
 	planCode, err := domain.GenerateSubscriptionPlanCode(provider, planName)

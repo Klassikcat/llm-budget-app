@@ -65,6 +65,7 @@ type SubscriptionRepository interface {
 	UpsertSubscriptions(ctx context.Context, subscriptions []domain.Subscription) error
 	ListSubscriptions(ctx context.Context, filter SubscriptionFilter) ([]domain.Subscription, error)
 	DisableSubscription(ctx context.Context, subscriptionID string, disabledAt time.Time) error
+	DeleteSubscription(ctx context.Context, subscriptionID string) error
 	UpsertSubscriptionFees(ctx context.Context, fees []domain.SubscriptionFee) error
 	ListSubscriptionFees(ctx context.Context, period domain.MonthlyPeriod) ([]domain.SubscriptionFee, error)
 }
