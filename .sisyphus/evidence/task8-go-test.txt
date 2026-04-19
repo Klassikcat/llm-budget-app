@@ -1,0 +1,16 @@
+?   	llm-budget-tracker/cmd/gui	[no test files]
+?   	llm-budget-tracker/cmd/tui	[no test files]
+?   	llm-budget-tracker/db/migrations	[no test files]
+?   	llm-budget-tracker/internal/adapters	[no test files]
+?   	llm-budget-tracker/internal/adapters/fsnotify	[no test files]
+ok  	llm-budget-tracker/internal/adapters/gui	(cached)
+ok  	llm-budget-tracker/internal/adapters/openrouter	(cached)
+ok  	llm-budget-tracker/internal/adapters/parsers	(cached)
+ok  	llm-budget-tracker/internal/adapters/sqlite	(cached)
+ok  	llm-budget-tracker/internal/adapters/tui	(cached)
+ok  	llm-budget-tracker/internal/app	(cached)
+ok  	llm-budget-tracker/internal/catalog	(cached)
+ok  	llm-budget-tracker/internal/config	(cached)
+ok  	llm-budget-tracker/internal/domain	(cached)
+?   	llm-budget-tracker/internal/ports	[no test files]
+ok  	llm-budget-tracker/internal/service	(cached)

@@ -464,7 +464,7 @@ Max Concurrent: 4 (Wave 2)
 
   **Commit**: NO
 
-- [ ] 5. 일별 토큰 사용량 추이 라인 차트 구현
+- [x] 5. 일별 토큰 사용량 추이 라인 차트 구현
 
   **What to do**:
   - ntcharts line/time-series chart를 사용해 `renderDailyTokenTrendChart(snapshot service.GraphSnapshot, width int) string` 구현
@@ -531,7 +531,7 @@ Max Concurrent: 4 (Wave 2)
 
   **Commit**: NO
 
-- [ ] 6. 모델별 토큰 타입 비율 표시 구현
+- [x] 6. 모델별 토큰 타입 비율 표시 구현
 
   **What to do**:
   - custom lipgloss 기반 렌더러 `renderModelTokenBreakdown(snapshot service.GraphSnapshot, width int) string` 구현
@@ -603,7 +603,7 @@ Max Concurrent: 4 (Wave 2)
 
 ---
 
-- [ ] 7. 그래프 뷰 통합 + 빈 상태 처리 + 도움말/헤더 업데이트
+- [x] 7. 그래프 뷰 통합 + 빈 상태 처리 + 도움말/헤더 업데이트
 
   **What to do**:
   - `internal/adapters/tui/view.go`에 `renderView` switch에 `viewGraphs` 분기 추가
@@ -673,7 +673,7 @@ Max Concurrent: 4 (Wave 2)
 
   **Commit**: NO
 
-- [ ] 8. 빌드 검증 + 전체 TUI 실행 QA
+- [x] 8. 빌드 검증 + 전체 TUI 실행 QA
 
   **What to do**:
   - `go build ./cmd/tui` 실행
@@ -751,19 +751,19 @@ Max Concurrent: 4 (Wave 2)
 
 > 4 review agents run in PARALLEL. ALL must APPROVE. Present consolidated results to user and get explicit "okay" before completing.
 
-- [ ] F1. **Plan Compliance Audit** — `oracle`
+- [x] F1. **Plan Compliance Audit** — `oracle`
   Read the plan end-to-end. For each "Must Have": verify implementation exists (read file, run command). For each "Must NOT Have": search codebase for forbidden patterns — reject with file:line if found. Check evidence files exist in .sisyphus/evidence/. Compare deliverables against plan.
   Output: `Must Have [N/N] | Must NOT Have [N/N] | Tasks [N/N] | VERDICT: APPROVE/REJECT`
 
-- [ ] F2. **Code Quality Review** — `unspecified-high`
+- [x] F2. **Code Quality Review** — `unspecified-high`
   Run `go build ./cmd/tui` + `go vet ./...` + `go test ./...`. Review all changed files for: unused imports, empty error handling, commented-out code, unused variables. Check for ntcharts API misuse. Verify lipgloss styles are consistent with existing codebase patterns.
   Output: `Build [PASS/FAIL] | Vet [PASS/FAIL] | Tests [N pass/N fail] | Files [N clean/N issues] | VERDICT`
 
-- [ ] F3. **Real Manual QA** — `unspecified-high`
+- [x] F3. **Real Manual QA** — `unspecified-high`
   Build TUI binary. Launch in tmux. Test: 'g' key opens graph view, Tab cycles through 4 graphs, Esc returns to dashboard. Verify each graph renders data or empty state. Take screenshots of each graph tab. Save to `.sisyphus/evidence/final-qa/`.
   Output: `Scenarios [N/N pass] | Integration [N/N] | Edge Cases [N tested] | VERDICT`
 
-- [ ] F4. **Scope Fidelity Check** — `deep`
+- [x] F4. **Scope Fidelity Check** — `deep`
   For each task: read "What to do", read actual diff. Verify 1:1 — everything in spec was built, nothing beyond spec was built. Check "Must NOT do" compliance: no mouse interaction, no DB migrations, no dashboard changes, no external API calls.
   Output: `Tasks [N/N compliant] | Contamination [CLEAN/N issues] | Unaccounted [CLEAN/N files] | VERDICT`
 

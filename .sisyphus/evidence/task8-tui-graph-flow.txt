@@ -1,0 +1,69 @@
+Task 8 TUI graph-flow QA summary
+
+Command:
+- go run ./cmd/tui
+
+Automated steps:
+- Launched `go run ./cmd/tui` under pexpect with a pseudo-TTY.
+- Waited for dashboard readiness marker: True.
+- Sent `g` to enter graph mode.
+- Observed graph-mode marker after `g`: True.
+- Sent first `Tab` to move to the next graph tab.
+- Observed first tab transition marker: True.
+- Sent second `Tab` to move to the next graph tab.
+- Observed second tab transition marker: True.
+- Sent third `Tab` to move to the Token Breakdown tab and waited for a breakdown-specific content marker.
+- Observed third tab transition marker: True.
+- Allowed the Token Breakdown tab to remain visible briefly before exiting graph mode.
+- Sent `Esc` to return to the dashboard.
+- Observed dashboard marker after `Esc`: True.
+- Sent `q` to quit the TUI.
+
+Observed markers:
+- entered_graph_mode: True
+- saw_model_token_usage: True
+- saw_model_cost: True
+- saw_daily_token_trend: True
+- saw_token_breakdown: True
+- returned_to_dashboard: True
+- quit_cleanly: True
+
+Per-tab evidence snippets:
+- Model Token Usage:
+  sc returns • q quits                                                              
+                                                                                                                                            
+  Model Usage Graphs                                                                                                                        
+                                                                                                                                            
+  [Model Token Usage]  •  Model Cost  •  Daily Token Trend  •  Token Breakdown                                                              
+                                                                                                                                            
+  Loading graph data...
+- Model Cost:
+  Model Token Usage  •  [Model Cost]  •  Daily Token Trend  •  Token Breakdown                                                              
+  #1  z-ai/glm-5.1   $38.73 (45.7%)                      │██████████████████████████████████████████████████████████████████████████████████
+                                                         │                                                                                  
+  #2  anthropic/claude-opus-4.7   $28.05 (33.1%)         │████████████████████████████████████████████████████████████▏
+- Daily Token Trend:
+  #10  claude-haiku-4-5-20251001   $0.00 (0.0%)          │                                                                                  
+                                                         │                                                                                  
+  #11  Other   $0.00 (0.0%)                              │                                                                                  
+  Model Token Usage  •  Model Cost  •  [Daily Token Trend]  •  Token Breakdown                                                              
+           │                                                                      ⡸⡀                                                        
+  416057304│                                                                      ⡇⡇                                                        
+           │                                                                     ⢰⠁⢱
+- Token Breakdown:
+  [Token Breakdown]                                                              
+  gpt-5.4 • 631,078,790 tokens                                                                                                              
+  ████████████████████████████████████████████████████████████                                                                              
+  ■ Input: 39,876,916 (6.3%)  ■ Output: 2,633,170 (0.4%)                                                                                    
+  ■ C.Read: 588,568,704                                                                                                                     
+  (93.3%)                     ■ C.Write: 0 (0.0%)                                                                                           
+                                                                                                                                            
+  z-ai/glm-5.1 • 91,512,355 tokens
+
+Limitations:
+- None observed in this environment.
+
+Raw capture:
+- .sisyphus/evidence/task8-tui-graph-flow.raw.txt
+Focused snapshots:
+- .sisyphus/evidence/task8-tui-graph-flow.snapshots.txt
