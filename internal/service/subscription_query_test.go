@@ -140,6 +140,10 @@ func (r *querySubscriptionRepository) ListSubscriptions(_ context.Context, filte
 	return items, nil
 }
 
+func (r *querySubscriptionRepository) DeleteSubscription(context.Context, string) error {
+	return nil
+}
+
 func (r *querySubscriptionRepository) DisableSubscription(context.Context, string, time.Time) error {
 	return nil
 }

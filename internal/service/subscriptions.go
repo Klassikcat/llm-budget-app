@@ -62,6 +62,18 @@ func (s *SubscriptionService) ListSubscriptions(ctx context.Context, filter port
 	return s.subscriptionRepo.ListSubscriptions(ctx, filter)
 }
 
+func (s *SubscriptionService) DeleteSubscription(ctx context.Context, subscriptionID string) error {
+	if s == nil || s.subscriptionRepo == nil {
+		return errSubscriptionRepoRequired
+	}
+
+	if strings.TrimSpace(subscriptionID) == "" {
+		return errSubscriptionIDRequired
+	}
+
+	return s.subscriptionRepo.DeleteSubscription(ctx, subscriptionID)
+}
+
 func (s *SubscriptionService) DisableSubscription(ctx context.Context, subscriptionID string, disabledAt time.Time) error {
 	if s == nil || s.subscriptionRepo == nil {
 		return errSubscriptionRepoRequired
@@ -87,7 +99,8 @@ func (s *SubscriptionService) RollupMonthlySpend(ctx context.Context, period dom
 		return SubscriptionMonthlyRollup{}, err
 	}
 
-	subscriptions, err := s.subscriptionRepo.ListSubscriptions(ctx, ports.SubscriptionFilter{Period: &period})
+	active := true
+	subscriptions, err := s.subscriptionRepo.ListSubscriptions(ctx, ports.SubscriptionFilter{Period: &period, Active: &active})
 	if err != nil {
 		return SubscriptionMonthlyRollup{}, err
 	}
@@ -112,6 +125,7 @@ func (s *SubscriptionService) RollupMonthlySpend(ctx context.Context, period dom
 	if err != nil {
 		return SubscriptionMonthlyRollup{}, err
 	}
+	persistedFees = filterSubscriptionFeesByActiveSubscriptions(persistedFees, subscriptions)
 
 	variableSpend := sumVariableUsageSpend(usageEntries)
 	subscriptionSpend := sumSubscriptionSpend(persistedFees)
@@ -124,4 +138,25 @@ func (s *SubscriptionService) RollupMonthlySpend(ctx context.Context, period dom
 		SubscriptionSpendUSD: subscriptionSpend,
 		TotalSpendUSD:        variableSpend + subscriptionSpend,
 	}, nil
+}
+
+func filterSubscriptionFeesByActiveSubscriptions(fees []domain.SubscriptionFee, subscriptions []domain.Subscription) []domain.SubscriptionFee {
+	if len(fees) == 0 || len(subscriptions) == 0 {
+		return make([]domain.SubscriptionFee, 0)
+	}
+
+	activeSubscriptionIDs := make(map[string]struct{}, len(subscriptions))
+	for _, subscription := range subscriptions {
+		activeSubscriptionIDs[subscription.SubscriptionID] = struct{}{}
+	}
+
+	filtered := make([]domain.SubscriptionFee, 0, len(fees))
+	for _, fee := range fees {
+		if _, ok := activeSubscriptionIDs[fee.SubscriptionID]; !ok {
+			continue
+		}
+		filtered = append(filtered, fee)
+	}
+
+	return filtered
 }

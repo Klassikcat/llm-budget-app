@@ -73,6 +73,21 @@ func TestDashboardQueryServiceLoadAggregatesSummaries(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewSubscriptionFee() error = %v", err)
 	}
+	subscription, err := domain.NewSubscription(domain.Subscription{
+		SubscriptionID: "sub-1",
+		Provider:       domain.ProviderClaude,
+		PlanCode:       "claude-max",
+		PlanName:       "Claude Max",
+		RenewalDay:     2,
+		StartsAt:       time.Date(2026, 4, 2, 0, 0, 0, 0, time.UTC),
+		FeeUSD:         100,
+		IsActive:       true,
+		CreatedAt:      time.Date(2026, 4, 2, 0, 0, 0, 0, time.UTC),
+		UpdatedAt:      time.Date(2026, 4, 2, 0, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatalf("NewSubscription() error = %v", err)
+	}
 
 	threshold, err := domain.NewBudgetThreshold(domain.AlertSeverityWarning, 0.8)
 	if err != nil {
@@ -94,7 +109,7 @@ func TestDashboardQueryServiceLoadAggregatesSummaries(t *testing.T) {
 		stubUsageRepo{entries: []domain.UsageEntry{entry}},
 		stubSessionRepo{sessions: []domain.SessionSummary{session}},
 		stubBudgetRepo{budgets: []domain.MonthlyBudget{budget}},
-		stubSubscriptionRepo{fees: []domain.SubscriptionFee{fee}},
+		stubSubscriptionRepo{subscriptions: []domain.Subscription{subscription}, fees: []domain.SubscriptionFee{fee}},
 	)
 
 	data, err := svc.QueryDashboard(context.Background(), DashboardQuery{Period: period, RecentSessionLimit: 5})
@@ -122,6 +137,62 @@ func TestDashboardQueryServiceLoadAggregatesSummaries(t *testing.T) {
 	}
 }
 
+func TestDashboardQueryServiceExcludesDisabledSubscriptionFromSummaries(t *testing.T) {
+	period, err := domain.NewMonthlyPeriod(time.Date(2026, 4, 17, 12, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("NewMonthlyPeriod() error = %v", err)
+	}
+
+	subscription, err := domain.NewSubscription(domain.Subscription{
+		SubscriptionID: "sub-openai",
+		Provider:       domain.ProviderOpenAI,
+		PlanCode:       "chatgpt-plus",
+		PlanName:       "ChatGPT Plus",
+		RenewalDay:     5,
+		StartsAt:       time.Date(2026, 4, 5, 0, 0, 0, 0, time.UTC),
+		EndsAt:         ptrTime(time.Date(2026, 4, 20, 0, 0, 0, 0, time.UTC)),
+		FeeUSD:         20,
+		IsActive:       false,
+		CreatedAt:      time.Date(2026, 4, 5, 0, 0, 0, 0, time.UTC),
+		UpdatedAt:      time.Date(2026, 4, 20, 0, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatalf("NewSubscription() error = %v", err)
+	}
+	fee, err := domain.NewSubscriptionFee(domain.SubscriptionFee{
+		SubscriptionID: "sub-openai",
+		Provider:       domain.ProviderOpenAI,
+		PlanCode:       "chatgpt-plus",
+		ChargedAt:      time.Date(2026, 4, 5, 0, 0, 0, 0, time.UTC),
+		Period:         period,
+		FeeUSD:         20,
+	})
+	if err != nil {
+		t.Fatalf("NewSubscriptionFee() error = %v", err)
+	}
+
+	svc := NewDashboardQueryService(
+		stubUsageRepo{},
+		stubSessionRepo{},
+		stubBudgetRepo{},
+		stubSubscriptionRepo{subscriptions: []domain.Subscription{subscription}, fees: []domain.SubscriptionFee{fee}},
+	)
+
+	data, err := svc.QueryDashboard(context.Background(), DashboardQuery{Period: period})
+	if err != nil {
+		t.Fatalf("QueryDashboard() error = %v", err)
+	}
+	if got := data.Totals.SubscriptionSpendUSD; got != 0 {
+		t.Fatalf("Totals.SubscriptionSpendUSD = %v, want 0", got)
+	}
+	if got := data.Totals.TotalSpendUSD; got != 0 {
+		t.Fatalf("Totals.TotalSpendUSD = %v, want 0", got)
+	}
+	if len(data.ProviderSummaries) != 0 {
+		t.Fatalf("ProviderSummaries = %+v, want none", data.ProviderSummaries)
+	}
+}
+
 type stubUsageRepo struct{ entries []domain.UsageEntry }
 
 func (s stubUsageRepo) UpsertUsageEntries(context.Context, []domain.UsageEntry) error { return nil }
@@ -136,13 +207,38 @@ func (s stubSessionRepo) ListSessions(context.Context, ports.SessionFilter) ([]d
 	return append([]domain.SessionSummary(nil), s.sessions...), nil
 }
 
-type stubSubscriptionRepo struct{ fees []domain.SubscriptionFee }
+type stubSubscriptionRepo struct {
+	subscriptions []domain.Subscription
+	fees          []domain.SubscriptionFee
+}
 
 func (s stubSubscriptionRepo) UpsertSubscriptions(context.Context, []domain.Subscription) error {
 	return nil
 }
-func (s stubSubscriptionRepo) ListSubscriptions(context.Context, ports.SubscriptionFilter) ([]domain.Subscription, error) {
-	return nil, nil
+func (s stubSubscriptionRepo) ListSubscriptions(_ context.Context, filter ports.SubscriptionFilter) ([]domain.Subscription, error) {
+	items := make([]domain.Subscription, 0, len(s.subscriptions))
+	for _, subscription := range s.subscriptions {
+		if filter.Provider != "" && subscription.Provider != filter.Provider {
+			continue
+		}
+		if filter.SubscriptionID != "" && subscription.SubscriptionID != filter.SubscriptionID {
+			continue
+		}
+		if filter.PlanCode != "" && subscription.PlanCode != filter.PlanCode {
+			continue
+		}
+		if filter.Active != nil && subscription.IsActive != *filter.Active {
+			continue
+		}
+		if filter.Period != nil && !subscription.OverlapsPeriod(*filter.Period) {
+			continue
+		}
+		items = append(items, subscription)
+	}
+	return items, nil
+}
+func (s stubSubscriptionRepo) DeleteSubscription(context.Context, string) error {
+	return nil
 }
 func (s stubSubscriptionRepo) DisableSubscription(context.Context, string, time.Time) error {
 	return nil
@@ -165,4 +261,8 @@ func (s stubBudgetRepo) ListMonthlyBudgets(context.Context, ports.BudgetFilter) 
 func (s stubBudgetRepo) UpsertBudgetStates(context.Context, []domain.BudgetState) error { return nil }
 func (s stubBudgetRepo) GetBudgetState(context.Context, string, domain.MonthlyPeriod) (domain.BudgetState, bool, error) {
 	return domain.BudgetState{}, false, nil
+}
+
+func ptrTime(value time.Time) *time.Time {
+	return &value
 }

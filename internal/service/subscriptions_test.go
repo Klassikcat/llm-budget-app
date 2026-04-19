@@ -68,7 +68,7 @@ func TestSubscriptionRollupOccursOncePerBillingPeriod(t *testing.T) {
 	}
 }
 
-func TestInactiveSubscriptionExcluded(t *testing.T) {
+func TestDeletedSubscriptionRemovedFromRollups(t *testing.T) {
 	period := mustMonthlyPeriod(t, 2026, time.April)
 	repo := &memorySubscriptionRepository{}
 	usageRepo := &memoryUsageRepository{}
@@ -89,16 +89,19 @@ func TestInactiveSubscriptionExcluded(t *testing.T) {
 		t.Fatalf("SaveSubscriptions() error = %v", err)
 	}
 
-	if err := service.DisableSubscription(context.Background(), "sub-gemini", time.Date(2026, time.March, 20, 18, 0, 0, 0, time.UTC)); err != nil {
-		t.Fatalf("DisableSubscription() error = %v", err)
+	if err := service.DeleteSubscription(context.Background(), "sub-gemini"); err != nil {
+		t.Fatalf("DeleteSubscription() error = %v", err)
 	}
 
 	marchRollup, err := service.RollupMonthlySpend(context.Background(), mustMonthlyPeriod(t, 2026, time.March))
 	if err != nil {
 		t.Fatalf("March RollupMonthlySpend() error = %v", err)
 	}
-	if got := len(marchRollup.SubscriptionFees); got != 1 {
-		t.Fatalf("len(marchRollup.SubscriptionFees) = %d, want 1", got)
+	if got := len(marchRollup.SubscriptionFees); got != 0 {
+		t.Fatalf("len(marchRollup.SubscriptionFees) = %d, want 0", got)
+	}
+	if got := marchRollup.SubscriptionSpendUSD; got != 0 {
+		t.Fatalf("March SubscriptionSpendUSD = %v, want 0", got)
 	}
 
 	aprilRollup, err := service.RollupMonthlySpend(context.Background(), period)
@@ -111,6 +114,48 @@ func TestInactiveSubscriptionExcluded(t *testing.T) {
 	}
 	if got := aprilRollup.SubscriptionSpendUSD; got != 0 {
 		t.Fatalf("April SubscriptionSpendUSD = %v, want 0", got)
+	}
+}
+
+func TestDisabledSubscriptionExcludedFromMonthlyTotals(t *testing.T) {
+	period := mustMonthlyPeriod(t, 2026, time.April)
+	repo := &memorySubscriptionRepository{}
+	usageRepo := &memoryUsageRepository{}
+	service := NewSubscriptionService(repo, usageRepo)
+
+	subscription := mustSubscription(t, domain.Subscription{
+		SubscriptionID: "sub-openai",
+		Provider:       domain.ProviderOpenAI,
+		PlanCode:       "chatgpt-plus",
+		PlanName:       "ChatGPT Plus",
+		RenewalDay:     5,
+		StartsAt:       time.Date(2026, time.April, 5, 7, 0, 0, 0, time.UTC),
+		FeeUSD:         20,
+		IsActive:       true,
+	})
+
+	if err := service.SaveSubscriptions(context.Background(), []domain.Subscription{subscription}); err != nil {
+		t.Fatalf("SaveSubscriptions() error = %v", err)
+	}
+	if _, err := service.RollupMonthlySpend(context.Background(), period); err != nil {
+		t.Fatalf("initial RollupMonthlySpend() error = %v", err)
+	}
+	if err := service.DisableSubscription(context.Background(), subscription.SubscriptionID, time.Date(2026, time.April, 20, 12, 0, 0, 0, time.UTC)); err != nil {
+		t.Fatalf("DisableSubscription() error = %v", err)
+	}
+
+	rollup, err := service.RollupMonthlySpend(context.Background(), period)
+	if err != nil {
+		t.Fatalf("RollupMonthlySpend() after disable error = %v", err)
+	}
+	if got := len(rollup.SubscriptionFees); got != 0 {
+		t.Fatalf("len(rollup.SubscriptionFees) = %d, want 0", got)
+	}
+	if got := rollup.SubscriptionSpendUSD; got != 0 {
+		t.Fatalf("SubscriptionSpendUSD = %v, want 0", got)
+	}
+	if got := rollup.TotalSpendUSD; got != 0 {
+		t.Fatalf("TotalSpendUSD = %v, want 0", got)
 	}
 }
 
@@ -154,21 +199,16 @@ func TestSubscriptionCrudLifecycle(t *testing.T) {
 		t.Fatalf("stored[0].FeeUSD = %v, want %v", got, want)
 	}
 
-	disabledAt := time.Date(2026, time.March, 6, 12, 0, 0, 0, time.UTC)
-	if err := service.DisableSubscription(context.Background(), subscription.SubscriptionID, disabledAt); err != nil {
-		t.Fatalf("DisableSubscription() error = %v", err)
+	if err := service.DeleteSubscription(context.Background(), subscription.SubscriptionID); err != nil {
+		t.Fatalf("DeleteSubscription() error = %v", err)
 	}
 
-	inactive := false
-	stored, err = service.ListSubscriptions(context.Background(), ports.SubscriptionFilter{Active: &inactive})
+	stored, err = service.ListSubscriptions(context.Background(), ports.SubscriptionFilter{})
 	if err != nil {
-		t.Fatalf("ListSubscriptions(inactive) error = %v", err)
+		t.Fatalf("ListSubscriptions() after delete error = %v", err)
 	}
-	if got := len(stored); got != 1 {
-		t.Fatalf("len(stored inactive subscriptions) = %d, want 1", got)
-	}
-	if stored[0].EndsAt == nil || !stored[0].EndsAt.Equal(disabledAt) {
-		t.Fatalf("stored inactive ends_at = %v, want %v", stored[0].EndsAt, disabledAt)
+	if got := len(stored); got != 0 {
+		t.Fatalf("len(stored subscriptions after delete) = %d, want 0", got)
 	}
 }
 
@@ -208,6 +248,11 @@ func (r *memorySubscriptionRepository) ListSubscriptions(_ context.Context, filt
 		items = append(items, subscription)
 	}
 	return items, nil
+}
+
+func (r *memorySubscriptionRepository) DeleteSubscription(_ context.Context, subscriptionID string) error {
+	delete(r.subscriptions, subscriptionID)
+	return nil
 }
 
 func (r *memorySubscriptionRepository) DisableSubscription(_ context.Context, subscriptionID string, disabledAt time.Time) error {
