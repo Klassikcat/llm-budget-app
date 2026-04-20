@@ -148,6 +148,8 @@ func TestModelShowsAlertBannerAndInsightDrillDown(t *testing.T) {
 	m = updated.(model)
 	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'i'}})
 	m = updated.(model)
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyTab})
+	m = updated.(model)
 	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	m = updated.(model)
 
@@ -194,6 +196,8 @@ func TestInsightDetailScrollKeysMoveViewport(t *testing.T) {
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 90, Height: 12})
 	m = updated.(model)
 	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'i'}})
+	m = updated.(model)
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyTab})
 	m = updated.(model)
 	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	m = updated.(model)
@@ -295,42 +299,264 @@ func TestInsightListKeepsSelectionVisibleWhenScrollingDown(t *testing.T) {
 	if !strings.Contains(m.View(), selectedInsight.InsightID) {
 		t.Fatalf("View() missing selected insight %q\n%s", selectedInsight.InsightID, m.View())
 	}
-	for _, needle := range []string{"Insight List", "Alert status:", "h/j/k/l pick insight", "Insights"} {
+	for _, needle := range []string{"Insight List", "Alert status:", "Tab/Shift+Tab cycle tabs • ↑↓ move • Enter detail • r refresh • Esc back • q quit", "Insights"} {
 		if !strings.Contains(m.View(), needle) {
 			t.Fatalf("View() missing fixed insight chrome %q\n%s", needle, m.View())
+		}
+	}
+	for _, needle := range []string{"[Logs]", "Dashboard"} {
+		if !strings.Contains(m.View(), needle) {
+			t.Fatalf("View() missing insight tab chrome %q\n%s", needle, m.View())
 		}
 	}
 }
 
 func TestInsightListVimKeysScrollSelectionAndViewport(t *testing.T) {
 	m := newInsightListModel(t, 18)
-	if !strings.Contains(m.View(), "h/j/k/l pick insight") {
+	if !strings.Contains(m.View(), "Tab/Shift+Tab cycle tabs • ↑↓ move • Enter detail • r refresh • Esc back • q quit") {
 		t.Fatalf("View() missing insight list vim help before scrolling\n%s", m.View())
 	}
 
-	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}})
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
 	m = updated.(model)
 	if got := m.insightSelection; got != 1 {
-		t.Fatalf("insightSelection after l = %d, want 1", got)
+		t.Fatalf("insightSelection after j = %d, want 1", got)
 	}
 
 	for range 10 {
-		updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}})
+		updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
 		m = updated.(model)
 	}
 	if got := m.viewport.YOffset; got == 0 {
-		t.Fatalf("viewport.YOffset after repeated l = %d, want > 0", got)
+		t.Fatalf("viewport.YOffset after repeated j = %d, want > 0", got)
 	}
 
 	previousSelection := m.insightSelection
-	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'h'}})
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
 	m = updated.(model)
 	if got := m.insightSelection; got != previousSelection-1 {
-		t.Fatalf("insightSelection after h = %d, want %d", got, previousSelection-1)
+		t.Fatalf("insightSelection after k = %d, want %d", got, previousSelection-1)
 	}
 	selectedInsight := m.insights[m.insightSelection]
 	if !strings.Contains(m.View(), selectedInsight.InsightID) {
-		t.Fatalf("View() missing selected insight %q after h\n%s", selectedInsight.InsightID, m.View())
+		t.Fatalf("View() missing selected insight %q after k\n%s", selectedInsight.InsightID, m.View())
+	}
+}
+
+func TestInsightTabTransitions(t *testing.T) {
+	t.Run("I1 entering insight list defaults to Dashboard", func(t *testing.T) {
+		m := newInsightTabModel(t, 3)
+		if m.mode != viewInsightList {
+			t.Fatalf("mode = %v, want %v", m.mode, viewInsightList)
+		}
+		if m.insightTab != insightTabDashboard {
+			t.Fatalf("insightTab = %v, want %v", m.insightTab, insightTabDashboard)
+		}
+	})
+
+	t.Run("I2 tab toggles sub-tab without changing viewMode", func(t *testing.T) {
+		m := newInsightTabModel(t, 3)
+		updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyTab})
+		m = updated.(model)
+		if m.mode != viewInsightList {
+			t.Fatalf("mode after tab = %v, want %v", m.mode, viewInsightList)
+		}
+		if m.insightTab != insightTabLogs {
+			t.Fatalf("insightTab after tab = %v, want %v", m.insightTab, insightTabLogs)
+		}
+		updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyShiftTab})
+		m = updated.(model)
+		if m.insightTab != insightTabDashboard {
+			t.Fatalf("insightTab after shift+tab = %v, want %v", m.insightTab, insightTabDashboard)
+		}
+	})
+
+	t.Run("I3 Enter on Dashboard is no-op", func(t *testing.T) {
+		m := newInsightTabModel(t, 3)
+		updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+		m = updated.(model)
+		if m.mode != viewInsightList {
+			t.Fatalf("mode after enter on dashboard = %v, want %v", m.mode, viewInsightList)
+		}
+		if m.insightTab != insightTabDashboard {
+			t.Fatalf("insightTab after enter on dashboard = %v, want %v", m.insightTab, insightTabDashboard)
+		}
+	})
+
+	t.Run("I4 Enter on Logs opens detail preserving Logs tab", func(t *testing.T) {
+		m := newInsightLogsTabModel(t, 3)
+		updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+		m = updated.(model)
+		if m.mode != viewInsightDetail {
+			t.Fatalf("mode after enter on logs = %v, want %v", m.mode, viewInsightDetail)
+		}
+		if m.insightTab != insightTabLogs {
+			t.Fatalf("insightTab after enter on logs = %v, want %v", m.insightTab, insightTabLogs)
+		}
+		if got := m.selectedInsightID; got != m.insights[0].InsightID {
+			t.Fatalf("selectedInsightID = %q, want %q", got, m.insights[0].InsightID)
+		}
+	})
+
+	t.Run("I5 Esc from detail returns to insight list with Logs selected", func(t *testing.T) {
+		m := newInsightLogsTabModel(t, 3)
+		updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+		m = updated.(model)
+		updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+		m = updated.(model)
+		if m.mode != viewInsightList {
+			t.Fatalf("mode after esc from detail = %v, want %v", m.mode, viewInsightList)
+		}
+		if m.insightTab != insightTabLogs {
+			t.Fatalf("insightTab after esc from detail = %v, want %v", m.insightTab, insightTabLogs)
+		}
+	})
+
+	t.Run("I6 top-level i re-entry resets to Dashboard", func(t *testing.T) {
+		m := newInsightLogsTabModel(t, 3)
+		updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+		m = updated.(model)
+		if m.mode != viewDashboard {
+			t.Fatalf("mode after leaving insights = %v, want %v", m.mode, viewDashboard)
+		}
+		updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'i'}})
+		m = updated.(model)
+		if m.mode != viewInsightList {
+			t.Fatalf("mode after re-entering insights = %v, want %v", m.mode, viewInsightList)
+		}
+		if m.insightTab != insightTabDashboard {
+			t.Fatalf("insightTab after re-entering insights = %v, want %v", m.insightTab, insightTabDashboard)
+		}
+	})
+
+	t.Run("I7 row selection preserved across Dashboard and Logs switches", func(t *testing.T) {
+		m := newInsightLogsTabModel(t, 5)
+		updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyDown})
+		m = updated.(model)
+		updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyDown})
+		m = updated.(model)
+		if got := m.insightSelection; got != 2 {
+			t.Fatalf("insightSelection before tab switch = %d, want 2", got)
+		}
+		updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyShiftTab})
+		m = updated.(model)
+		updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyTab})
+		m = updated.(model)
+		if got := m.insightSelection; got != 2 {
+			t.Fatalf("insightSelection after tab switch = %d, want 2", got)
+		}
+	})
+
+	t.Run("I8 exiting and re-entering resets selection to 0", func(t *testing.T) {
+		m := newInsightLogsTabModel(t, 5)
+		updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyDown})
+		m = updated.(model)
+		updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyDown})
+		m = updated.(model)
+		if got := m.insightSelection; got != 2 {
+			t.Fatalf("insightSelection before exit = %d, want 2", got)
+		}
+		updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+		m = updated.(model)
+		updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'i'}})
+		m = updated.(model)
+		if got := m.insightSelection; got != 0 {
+			t.Fatalf("insightSelection after re-entering insights = %d, want 0", got)
+		}
+	})
+}
+
+func TestInsightDashboardLoadTriggersWasteSummary(t *testing.T) {
+	period, err := domain.NewMonthlyPeriod(time.Date(2026, 4, 17, 12, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("NewMonthlyPeriod() error = %v", err)
+	}
+
+	wasteSummary := domain.WasteSummary{Period: period, TotalWasteCostUSD: 12.34}
+	loader := &captureWasteSummaryLoader{data: wasteSummary}
+	m := newModel(modelDependencies{
+		loader:       staticLoader{data: service.DashboardSnapshot{Period: period, Empty: true}},
+		wasteSummary: loader,
+	}, period)
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 20})
+	m = updated.(model)
+
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'i'}})
+	m = updated.(model)
+	if m.mode != viewInsightList {
+		t.Fatalf("mode after i = %v, want %v", m.mode, viewInsightList)
+	}
+	if m.insightTab != insightTabDashboard {
+		t.Fatalf("insightTab after i = %v, want %v", m.insightTab, insightTabDashboard)
+	}
+	if cmd == nil {
+		t.Fatal("expected waste summary load command when entering insights")
+	}
+
+	msg := cmd()
+	loaded, ok := msg.(wasteSummaryLoadedMsg)
+	if !ok {
+		t.Fatalf("cmd() message type = %T, want wasteSummaryLoadedMsg", msg)
+	}
+	if got := len(loader.periods); got != 1 {
+		t.Fatalf("QueryWasteSummary() calls = %d, want 1", got)
+	}
+	if got := loader.periods[0]; got != period {
+		t.Fatalf("QueryWasteSummary() period = %#v, want %#v", got, period)
+	}
+
+	updated, _ = m.Update(loaded)
+	m = updated.(model)
+	if got := m.wasteSummaryData.TotalWasteCostUSD; got != wasteSummary.TotalWasteCostUSD {
+		t.Fatalf("wasteSummaryData.TotalWasteCostUSD = %v, want %v", got, wasteSummary.TotalWasteCostUSD)
+	}
+}
+
+func TestInsightDashboardRefreshLoadsWasteSummary(t *testing.T) {
+	period, err := domain.NewMonthlyPeriod(time.Date(2026, 4, 17, 12, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("NewMonthlyPeriod() error = %v", err)
+	}
+
+	loader := &captureWasteSummaryLoader{data: domain.WasteSummary{Period: period, TotalWasteCostUSD: 9.87}}
+	m := newModel(modelDependencies{
+		loader:       staticLoader{data: service.DashboardSnapshot{Period: period, Empty: true}},
+		wasteSummary: loader,
+	}, period)
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 20})
+	m = updated.(model)
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'i'}})
+	m = updated.(model)
+
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
+	m = updated.(model)
+	if cmd == nil {
+		t.Fatal("expected refresh command on insight dashboard")
+	}
+
+	if got := len(loader.periods); got != 0 {
+		t.Fatalf("QueryWasteSummary() calls before running refresh cmd = %d, want 0", got)
+	}
+
+	msg := cmd()
+	batch, ok := msg.(tea.BatchMsg)
+	if !ok {
+		t.Fatalf("refresh cmd() message type = %T, want tea.BatchMsg", msg)
+	}
+	sawWasteSummaryMsg := false
+	for _, nested := range batch {
+		if nested == nil {
+			continue
+		}
+		if _, ok := nested().(wasteSummaryLoadedMsg); ok {
+			sawWasteSummaryMsg = true
+		}
+	}
+	if !sawWasteSummaryMsg {
+		t.Fatal("refresh batch did not include wasteSummaryLoadedMsg")
+	}
+	if got := len(loader.periods); got != 1 {
+		t.Fatalf("QueryWasteSummary() calls after running refresh cmd = %d, want 1", got)
 	}
 }
 
@@ -372,11 +598,21 @@ func newScrolledInsightDetailModel(t *testing.T) model {
 	m = updated.(model)
 	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'i'}})
 	m = updated.(model)
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyTab})
+	m = updated.(model)
 	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	return updated.(model)
 }
 
 func newInsightListModel(t *testing.T, insightCount int) model {
+	t.Helper()
+
+	m := newInsightTabModel(t, insightCount)
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyTab})
+	return updated.(model)
+}
+
+func newInsightTabModel(t *testing.T, insightCount int) model {
 	t.Helper()
 
 	period, err := domain.NewMonthlyPeriod(time.Date(2026, 4, 17, 12, 0, 0, 0, time.UTC))
@@ -409,6 +645,14 @@ func newInsightListModel(t *testing.T, insightCount int) model {
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 12})
 	m = updated.(model)
 	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'i'}})
+	return updated.(model)
+}
+
+func newInsightLogsTabModel(t *testing.T, insightCount int) model {
+	t.Helper()
+
+	m := newInsightTabModel(t, insightCount)
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyTab})
 	return updated.(model)
 }
 
@@ -939,6 +1183,17 @@ type staticLoader struct {
 
 func (s staticLoader) QueryDashboard(context.Context, service.DashboardQuery) (service.DashboardSnapshot, error) {
 	return s.data, s.err
+}
+
+type captureWasteSummaryLoader struct {
+	data    domain.WasteSummary
+	err     error
+	periods []domain.MonthlyPeriod
+}
+
+func (c *captureWasteSummaryLoader) QueryWasteSummary(_ context.Context, period domain.MonthlyPeriod) (domain.WasteSummary, error) {
+	c.periods = append(c.periods, period)
+	return c.data, c.err
 }
 
 type rejectingManualSaver struct{}

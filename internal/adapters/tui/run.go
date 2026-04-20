@@ -2,6 +2,7 @@ package tui
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -10,23 +11,31 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"llm-budget-tracker/internal/adapters/sqlite"
 	"llm-budget-tracker/internal/app"
 	"llm-budget-tracker/internal/config"
 	"llm-budget-tracker/internal/domain"
 	"llm-budget-tracker/internal/service"
 )
 
-func Run() error {
-	return run(context.Background(), os.Args[1:], os.Stderr)
+type RunOptions struct {
+	NewWasteSummaryService func(store *sqlite.Store) *service.WasteSummaryService
 }
 
-func run(ctx context.Context, args []string, stderr io.Writer) error {
+func Run(opts RunOptions) error {
+	return run(context.Background(), os.Args[1:], os.Stderr, opts)
+}
+
+func run(ctx context.Context, args []string, stderr io.Writer, opts RunOptions) error {
 	flagSet := flag.NewFlagSet("llm-budget-tracker-tui", flag.ContinueOnError)
 	flagSet.SetOutput(stderr)
 
 	dbPath := flagSet.String("db", "", "path to SQLite database")
 	bootstrapOnly := flagSet.Bool("bootstrap-only", false, "initialize config and SQLite database, then exit")
 	if err := flagSet.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return nil
+		}
 		return err
 	}
 
@@ -50,9 +59,15 @@ func run(ctx context.Context, args []string, stderr io.Writer) error {
 		return err
 	}
 
+	var wasteSummary wasteSummaryLoader
+	if opts.NewWasteSummaryService != nil {
+		wasteSummary = opts.NewWasteSummaryService(graph.Store)
+	}
+
 	program := tea.NewProgram(newModel(modelDependencies{
 		loader:        graph.DashboardQueryService,
 		graphs:        service.NewGraphQueryService(graph.Store),
+		wasteSummary:  wasteSummary,
 		manualEntries: graph.ManualEntryService,
 		subscriptions: graph.SubscriptionService,
 		insights:      graph.Store,
