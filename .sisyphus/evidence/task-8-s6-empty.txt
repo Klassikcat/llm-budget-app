@@ -1,0 +1,38 @@
+LLM Budget Tracker
+Insight List • April 2026
+Alert status: no stored alerts for this month.
+Tab/Shift+Tab cycle tabs • ↑↓ or j/k pick insight in Logs • Enter opens detail in Logs • Esc returns • r refresh • q quits
+Insights
+This Month Waste                                                                                                                          
+No waste data available for this month.                                                                                                   
+Add usage entries and run insights to populate the dashboard.                                                                             
+                                                                                                                                          
+                                                                                                                                          
+                                                                                                                                          
+                                                                                                                                          
+                                                                                                                                          
+                                                                                                                                          
+                                                                                                                                          
+                                                                                                                                          
+                                                                                                                                          
+                                                                                                                                          
+                                                                                                                                          
+                                                                                                                                          
+                                                                                                                                          
+                                                                                                                                          
+                                                                                                                                          
+                                                                                                                                          
+                                                                                                                                          
+                                                                                                                                          
+                                                                                                                                          
+                                                                                                                                          
+                                                                                                                                          
+                                                                                                                                          
+                                                                                                                                          
+                                                                                                                                          
+                                                                                                                                          
+                                                                                                                                          
+                                                                                                                                          
+                                                                                                                                          
+                                                                                                                                          
+                                                                                                                                          

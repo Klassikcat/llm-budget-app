@@ -49,6 +49,19 @@ func TestInsightsDashboard_FullData(t *testing.T) {
 func TestInsightsDashboard_Empty(t *testing.T) {
 	summary := domain.WasteSummary{
 		Period: domain.MonthlyPeriod{StartAt: time.Date(2026, time.April, 1, 0, 0, 0, 0, time.UTC), EndExclusive: time.Date(2026, time.May, 1, 0, 0, 0, 0, time.UTC)},
+		ByDetector: []domain.WasteByDetector{
+			{Category: domain.DetectorContextAvalanche, AttributedCostUSD: 0.0, InsightCount: 0},
+			{Category: domain.DetectorRepeatedFileReads, AttributedCostUSD: 0.0, InsightCount: 0},
+			{Category: domain.DetectorRetryAmplification, AttributedCostUSD: 0.0, InsightCount: 0},
+			{Category: domain.DetectorOverQualifiedModel, AttributedCostUSD: 0.0, InsightCount: 0},
+			{Category: domain.DetectorToolSchemaBloat, AttributedCostUSD: 0.0, InsightCount: 0},
+			{Category: domain.DetectorPlanningTax, AttributedCostUSD: 0.0, InsightCount: 0},
+			{Category: domain.DetectorZombieLoops, AttributedCostUSD: 0.0, InsightCount: 0},
+			{Category: domain.DetectorMissedPromptCaching, AttributedCostUSD: 0.0, InsightCount: 0},
+		},
+		DailyTrend: []domain.WasteTrendPoint{
+			{Day: time.Date(2026, time.April, 1, 0, 0, 0, 0, time.UTC), WasteCostUSD: 0.0},
+		},
 	}
 
 	out := renderInsightsDashboard(summary, 80)

@@ -9,7 +9,12 @@ import (
 )
 
 func renderInsightsDashboard(summary domain.WasteSummary, width int) string {
-	if summary.TotalSpendCostUSD == 0 && summary.TotalWasteCostUSD == 0 && len(summary.ByDetector) == 0 {
+	totalInsights := 0
+	for _, d := range summary.ByDetector {
+		totalInsights += d.InsightCount
+	}
+
+	if totalInsights == 0 {
 		return renderEmptyDashboard(summary.Period, width)
 	}
 
