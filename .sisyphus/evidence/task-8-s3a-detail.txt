@@ -1,0 +1,38 @@
+LLM Budget Tracker
+Insight Detail • April 2026
+Alert status: no stored alerts for this month.
+Loading insight dashboard...
+↑↓ or h/j/k/l scroll • PgUp/PgDn page • Esc returns • q quits
+Insight Detail
+Insight ID: qa-insight-1                                                                                              
+Category:   context_avalanche                                                                                         
+Severity:   high                                                                                                      
+Detected:   2026-04-04 09:00:00                                                                                       
+Privacy-safe metadata only. No prompt text, response text, or notes are stored.                                       
+Session IDs                                                                                                           
+- qa-session-1                                                                                                        
+Usage Entry IDs                                                                                                       
+- qa-usage-01                                                                                                         
+- qa-usage-02                                                                                                         
+- qa-usage-03                                                                                                         
+- qa-usage-04                                                                                                         
+- qa-usage-05                                                                                                         
+- qa-usage-06                                                                                                         
+Hashes                                                                                                                
+- target_hash: sha256:qa-insight-1                                                                                    
+Counts                                                                                                                
+- entry_count: 6                                                                                                      
+Metrics                                                                                                               
+- estimated_waste_usd: 2.4100 usd                                                                                     
+                                                                                                                      
+                                                                                                                      
+                                                                                                                      
+                                                                                                                      
+                                                                                                                      
+                                                                                                                      
+                                                                                                                      
+                                                                                                                      
+                                                                                                                      
+                                                                                                                      
+                                                                                                                      
+                                                                                                                      

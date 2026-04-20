@@ -1,0 +1,38 @@
+LLM Budget Tracker
+Insight List • April 2026
+Alert status: no stored alerts for this month.
+Loading insight dashboard...
+Tab/Shift+Tab cycle tabs • ↑↓ or j/k pick insig…
+Insights
+This Month Waste                                
+$11.60                                          
+                                                
+Waste % of Total Spend                          
+74.0%                                           
+                                                
+Projected Month-End Waste                       
+$17.40 proj.                                    
+                                                
+This Week Waste                                 
+$0.00                                           
+                                                
+Top Waste Causes                                
+████████████████████    $4.88  tool_schema_bloat
+███████████████         $3.82  context_avalanche
+███████████             $2.90  missed_prompt_ca…
+                                                
+Daily Waste Trend (30-day)                      
+Trend requires ≥60 cols                         
+                                                
+                                                
+                                                
+                                                
+                                                
+                                                
+                                                
+                                                
+                                                
+                                                
+                                                
+                                                
+                                                

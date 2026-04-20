@@ -1,0 +1,7 @@
+cmd/tui/main.go:13:		NewWasteSummaryService: func(store *sqlite.Store) *service.WasteSummaryService {
+cmd/tui/main.go:14:			return service.NewWasteSummaryService(store, store)
+internal/service/waste_summary.go:48:func NewWasteSummaryService(usageRepo ports.UsageEntryRepository, insightRepo ports.InsightRepository) *WasteSummaryService {
+internal/service/waste_summary_test.go:264:			service := NewWasteSummaryService(
+internal/adapters/tui/run.go:22:	NewWasteSummaryService func(store *sqlite.Store) *service.WasteSummaryService
+internal/adapters/tui/run.go:63:	if opts.NewWasteSummaryService != nil {
+internal/adapters/tui/run.go:64:		wasteSummary = opts.NewWasteSummaryService(graph.Store)
