@@ -4,6 +4,7 @@ import (
 	"flag"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -44,6 +45,34 @@ func TestInsightsDashboard_FullData(t *testing.T) {
 
 	out := renderInsightsDashboard(summary, 80)
 	assertGolden(t, "insights_dashboard_full.golden", out)
+}
+
+func TestInsightsDashboard_TopCausesUseDistinctBarFills(t *testing.T) {
+	summary := domain.WasteSummary{
+		Period: domain.MonthlyPeriod{StartAt: time.Date(2026, time.April, 1, 0, 0, 0, 0, time.UTC), EndExclusive: time.Date(2026, time.May, 1, 0, 0, 0, 0, time.UTC)},
+		ByDetector: []domain.WasteByDetector{
+			{Category: domain.DetectorContextAvalanche, AttributedCostUSD: 5.0, InsightCount: 2},
+			{Category: domain.DetectorMissedPromptCaching, AttributedCostUSD: 4.0, InsightCount: 1},
+		},
+		TopCauses: []domain.WasteByDetector{
+			{Category: domain.DetectorContextAvalanche, AttributedCostUSD: 5.0, InsightCount: 2},
+			{Category: domain.DetectorMissedPromptCaching, AttributedCostUSD: 4.0, InsightCount: 1},
+		},
+	}
+
+	out := renderInsightsDashboard(summary, 80)
+	if !strings.Contains(out, strings.Repeat(wasteCauseBarFill(domain.DetectorContextAvalanche), 20)) {
+		t.Fatalf("dashboard missing expected fill for %s\n%s", domain.DetectorContextAvalanche, out)
+	}
+	if !strings.Contains(out, strings.Repeat(wasteCauseBarFill(domain.DetectorMissedPromptCaching), 16)) {
+		t.Fatalf("dashboard missing expected fill for %s\n%s", domain.DetectorMissedPromptCaching, out)
+	}
+	if wasteCauseBarFill(domain.DetectorContextAvalanche) == wasteCauseBarFill(domain.DetectorMissedPromptCaching) {
+		t.Fatal("expected distinct bar fills for different waste causes")
+	}
+	if !strings.Contains(out, string(domain.DetectorContextAvalanche)) || !strings.Contains(out, string(domain.DetectorMissedPromptCaching)) {
+		t.Fatalf("dashboard missing cause labels\n%s", out)
+	}
 }
 
 func TestInsightsDashboard_Empty(t *testing.T) {

@@ -104,12 +104,35 @@ func renderTopCausesBarList(summary domain.WasteSummary, width int) string {
 			barWidth = 1
 		}
 
-		bar := strings.Repeat("█", barWidth)
+		bar := strings.Repeat(wasteCauseBarFill(cause.Category), barWidth)
 		line := fmt.Sprintf("%-20s %8s  %s", bar, formatUSD(cause.AttributedCostUSD), cause.Category)
 		lines = append(lines, truncateLine(line, width))
 	}
 
 	return strings.Join(lines, "\n")
+}
+
+func wasteCauseBarFill(category domain.DetectorCategory) string {
+	switch category {
+	case domain.DetectorContextAvalanche:
+		return "█"
+	case domain.DetectorRepeatedFileReads:
+		return "▓"
+	case domain.DetectorRetryAmplification:
+		return "▒"
+	case domain.DetectorOverQualifiedModel:
+		return "░"
+	case domain.DetectorToolSchemaBloat:
+		return "▇"
+	case domain.DetectorPlanningTax:
+		return "▆"
+	case domain.DetectorZombieLoops:
+		return "▅"
+	case domain.DetectorMissedPromptCaching:
+		return "▃"
+	default:
+		return "█"
+	}
 }
 
 func renderDailyWasteTrend(summary domain.WasteSummary, width int) string {
