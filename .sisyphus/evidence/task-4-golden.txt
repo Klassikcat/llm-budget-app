@@ -1,0 +1,12 @@
+=== RUN   TestInsightsDashboard_FullData
+--- PASS: TestInsightsDashboard_FullData (0.00s)
+=== RUN   TestInsightsDashboard_Empty
+--- PASS: TestInsightsDashboard_Empty (0.00s)
+=== RUN   TestInsightsDashboard_SingleCategory
+--- PASS: TestInsightsDashboard_SingleCategory (0.00s)
+=== RUN   TestInsightsDashboard_NarrowTerminal
+--- PASS: TestInsightsDashboard_NarrowTerminal (0.00s)
+=== RUN   TestInsightsDashboard_ZeroSpend
+--- PASS: TestInsightsDashboard_ZeroSpend (0.00s)
+PASS
+ok  	llm-budget-tracker/internal/adapters/tui	0.003s

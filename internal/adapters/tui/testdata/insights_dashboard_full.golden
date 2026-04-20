@@ -1,0 +1,29 @@
+This Month Waste
+$12.34
+
+Waste % of Total Spend
+12.3%
+
+Projected Month-End Waste
+$45.67 proj.
+
+This Week Waste
+$5.00
+
+Top Waste Causes
+████████████████████    $5.00  context_avalanche
+████████████████        $4.00  missed_prompt_caching
+████████                $2.00  tool_schema_bloat
+█████                   $1.34  over_qualified_model_choice
+
+Daily Waste Trend (30-day)
+5│           ⢠⠋⠒⠤⣀                                                              
+ │           ⡜    ⠁                                                             
+4│          ⢠⠃                                                                  
+ │          ⡜                                                                   
+2│    ⡀    ⢠⠃                                                                   
+ │ ⢀⠔⠊⠘⢄   ⡜                                                                    
+1│⠊⠁   ⠈⢢ ⢠⠃                                                                    
+ │       ⠱⡜                                                                     
+0└──────────────────────────────────────────────────────────────────────────────
+ '26 04/01   04/03   04/05   04/07   04/09   04/11   04/13   04/15   04/17      
