@@ -1,0 +1,7 @@
+Categories: context_avalanche 2 · tool_schema_bloat 1 · planning_tax 1 · missed_prompt_caching 1
+  2026-04-01 10:00:00  context_avalanche             high  insight-00
+  2026-04-01 11:00:00  context_avalanche             medium  insight-01
+  2026-04-01 12:00:00  planning_tax                  high  insight-02
+  2026-04-01 13:00:00  tool_schema_bloat             low  insight-03
+> 2026-04-01 14:00:00  missed_prompt_caching         medium  insight-04
+Enter opens privacy-safe detail metadata. Prompt or response text is never shown here.

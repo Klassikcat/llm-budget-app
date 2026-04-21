@@ -25,6 +25,10 @@ type graphLoader interface {
 	QueryGraphs(ctx context.Context, query service.GraphQuery) (service.GraphSnapshot, error)
 }
 
+type wasteSummaryLoader interface {
+	QueryWasteSummary(ctx context.Context, period domain.MonthlyPeriod) (domain.WasteSummary, error)
+}
+
 type manualEntrySaver interface {
 	Save(ctx context.Context, cmd service.ManualAPIUsageEntryCommand) (domain.UsageEntry, error)
 }
@@ -76,6 +80,14 @@ const (
 	graphTabCount
 )
 
+type insightTab int
+
+const (
+	insightTabDashboard insightTab = iota
+	insightTabLogs
+	insightTabCount
+)
+
 type dashboardLoadedMsg struct {
 	data service.DashboardSnapshot
 	err  error
@@ -83,6 +95,11 @@ type dashboardLoadedMsg struct {
 
 type graphLoadedMsg struct {
 	data service.GraphSnapshot
+	err  error
+}
+
+type wasteSummaryLoadedMsg struct {
+	data domain.WasteSummary
 	err  error
 }
 
@@ -119,6 +136,7 @@ type subscriptionDeletedMsg struct {
 type modelDependencies struct {
 	loader        dashboardLoader
 	graphs        graphLoader
+	wasteSummary  wasteSummaryLoader
 	manualEntries manualEntrySaver
 	subscriptions subscriptionManager
 	insights      insightLister
@@ -172,9 +190,11 @@ type model struct {
 	err                   error
 	data                  service.DashboardSnapshot
 	graphData             service.GraphSnapshot
+	wasteSummaryData      domain.WasteSummary
 	graphLoading          bool
 	graphErr              error
 	graphTab              graphTab
+	insightTab            insightTab
 	alerts                []domain.AlertEvent
 	insights              []domain.Insight
 	focus                 focusSection
@@ -206,6 +226,7 @@ func newModel(deps modelDependencies, period domain.MonthlyPeriod) model {
 		focus:            sectionOverview,
 		mode:             viewDashboard,
 		graphTab:         graphTabModelTokenUsage,
+		insightTab:       insightTabDashboard,
 		viewport:         vp,
 		recentLimit:      8,
 		manualForm:       manualForm,
@@ -238,6 +259,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.graphErr = msg.err
 		if msg.err == nil {
 			m.graphData = msg.data
+		}
+		m.syncViewport()
+		return m, nil
+	case wasteSummaryLoadedMsg:
+		if msg.err != nil {
+			m.statusMessage = fmt.Sprintf("Insight dashboard refresh failed: %v", msg.err)
+		} else {
+			m.wasteSummaryData = msg.data
 		}
 		m.syncViewport()
 		return m, nil
@@ -417,9 +446,10 @@ func (m model) updateDashboard(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.syncViewport()
 		return m, m.loadSubscriptions()
 	case "i":
-		m.mode = viewInsightList
+		m.enterInsights()
+		m.statusMessage = "Loading insight dashboard..."
 		m.syncViewport()
-		return m, nil
+		return m, m.loadWasteSummary()
 	case "g":
 		m.mode = viewGraphs
 		m.graphLoading = true
@@ -493,21 +523,43 @@ func (m model) updateInsightList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "esc", "backspace":
 		m.mode = viewDashboard
+		m.insightSelection = 0
+		m.selectedInsightID = ""
+	case "tab", "right", "l":
+		m.insightTab = (m.insightTab + 1) % insightTabCount
+	case "shift+tab", "left", "h":
+		m.insightTab = (m.insightTab + insightTabCount - 1) % insightTabCount
 	case "r":
+		m.statusMessage = "Refreshing insight dashboard..."
+		if m.insightTab == insightTabLogs {
+			m.statusMessage = "Refreshing insight logs..."
+			m.syncViewport()
+			return m, tea.Batch(m.loadInsights(), m.loadAlerts())
+		}
 		m.loading = true
+		m.err = nil
 		m.syncViewport()
-		return m, m.loadAll()
-	case "up", "k", "h":
+		return m, tea.Batch(m.loadDashboard(), m.loadAlerts(), m.loadWasteSummary())
+	case "up", "k":
+		if m.insightTab != insightTabLogs {
+			break
+		}
 		if len(m.insights) > 0 && m.insightSelection > 0 {
 			m.insightSelection--
 			m.selectedInsightID = m.insights[m.insightSelection].InsightID
 		}
-	case "down", "j", "l":
+	case "down", "j":
+		if m.insightTab != insightTabLogs {
+			break
+		}
 		if len(m.insights) > 0 && m.insightSelection < len(m.insights)-1 {
 			m.insightSelection++
 			m.selectedInsightID = m.insights[m.insightSelection].InsightID
 		}
 	case "enter":
+		if m.insightTab != insightTabLogs {
+			break
+		}
 		if len(m.insights) > 0 {
 			m.selectedInsightID = m.insights[m.insightSelection].InsightID
 			m.mode = viewInsightDetail
@@ -521,6 +573,7 @@ func (m model) updateInsightDetail(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "esc", "backspace":
 		m.mode = viewInsightList
+		m.insightTab = insightTabLogs
 		m.syncViewport()
 		return m, nil
 	case "down", "j", "l":
@@ -537,6 +590,13 @@ func (m model) updateInsightDetail(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	return m, nil
+}
+
+func (m *model) enterInsights() {
+	m.mode = viewInsightList
+	m.insightTab = insightTabDashboard
+	m.insightSelection = 0
+	m.selectedInsightID = ""
 }
 
 func (m model) updateManualEntryForm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -603,6 +663,16 @@ func (m model) loadGraphs() tea.Cmd {
 		}
 		data, err := m.deps.graphs.QueryGraphs(context.Background(), service.GraphQuery{Period: m.period})
 		return graphLoadedMsg{data: data, err: err}
+	}
+}
+
+func (m model) loadWasteSummary() tea.Cmd {
+	return func() tea.Msg {
+		if m.deps.wasteSummary == nil {
+			return wasteSummaryLoadedMsg{}
+		}
+		data, err := m.deps.wasteSummary.QueryWasteSummary(context.Background(), m.period)
+		return wasteSummaryLoadedMsg{data: data, err: err}
 	}
 }
 
@@ -705,7 +775,7 @@ func (m *model) syncViewport() {
 func renderViewportBody(m *model, width int) string {
 	switch m.mode {
 	case viewInsightList:
-		return renderInsightListBody(m, width)
+		return bodyForInsightTab(*m, width)
 	case viewInsightDetail:
 		return renderInsightDetailBody(m, width)
 	default:
@@ -735,6 +805,9 @@ func (m model) insightListViewportOffset(contentWidth int, currentOffset int) in
 
 func insightListSelectionLine(m model, width int) int {
 	_ = width
+	if m.insightTab == insightTabLogs && len(m.insights) > 0 {
+		return 1 + m.insightSelection
+	}
 	return m.insightSelection
 }
 

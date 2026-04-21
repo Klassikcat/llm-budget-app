@@ -1,0 +1,54 @@
+=== RUN   TestWasteSummaryService_QueryWasteSummary_REDScenarios
+=== PAUSE TestWasteSummaryService_QueryWasteSummary_REDScenarios
+=== CONT  TestWasteSummaryService_QueryWasteSummary_REDScenarios
+=== RUN   TestWasteSummaryService_QueryWasteSummary_REDScenarios/empty_data
+=== PAUSE TestWasteSummaryService_QueryWasteSummary_REDScenarios/empty_data
+=== RUN   TestWasteSummaryService_QueryWasteSummary_REDScenarios/single_entry_and_single_insight
+=== PAUSE TestWasteSummaryService_QueryWasteSummary_REDScenarios/single_entry_and_single_insight
+=== RUN   TestWasteSummaryService_QueryWasteSummary_REDScenarios/one_entry_referenced_by_two_insights_of_different_severities
+=== PAUSE TestWasteSummaryService_QueryWasteSummary_REDScenarios/one_entry_referenced_by_two_insights_of_different_severities
+=== RUN   TestWasteSummaryService_QueryWasteSummary_REDScenarios/entry_with_no_insight
+=== PAUSE TestWasteSummaryService_QueryWasteSummary_REDScenarios/entry_with_no_insight
+=== RUN   TestWasteSummaryService_QueryWasteSummary_REDScenarios/missing_referenced_entry_id
+=== PAUSE TestWasteSummaryService_QueryWasteSummary_REDScenarios/missing_referenced_entry_id
+=== RUN   TestWasteSummaryService_QueryWasteSummary_REDScenarios/projection_with_elapsed_days_equals_zero
+=== PAUSE TestWasteSummaryService_QueryWasteSummary_REDScenarios/projection_with_elapsed_days_equals_zero
+=== RUN   TestWasteSummaryService_QueryWasteSummary_REDScenarios/projection_with_elapsed_days_greater_than_zero
+=== PAUSE TestWasteSummaryService_QueryWasteSummary_REDScenarios/projection_with_elapsed_days_greater_than_zero
+=== RUN   TestWasteSummaryService_QueryWasteSummary_REDScenarios/waste_percent_with_zero_spend
+=== PAUSE TestWasteSummaryService_QueryWasteSummary_REDScenarios/waste_percent_with_zero_spend
+=== RUN   TestWasteSummaryService_QueryWasteSummary_REDScenarios/daily_trend_contiguous_days_including_zeros
+=== PAUSE TestWasteSummaryService_QueryWasteSummary_REDScenarios/daily_trend_contiguous_days_including_zeros
+=== RUN   TestWasteSummaryService_QueryWasteSummary_REDScenarios/top_causes_with_three_categories
+=== PAUSE TestWasteSummaryService_QueryWasteSummary_REDScenarios/top_causes_with_three_categories
+=== RUN   TestWasteSummaryService_QueryWasteSummary_REDScenarios/top_causes_with_eight_categories
+=== PAUSE TestWasteSummaryService_QueryWasteSummary_REDScenarios/top_causes_with_eight_categories
+=== RUN   TestWasteSummaryService_QueryWasteSummary_REDScenarios/category_breakdown_enum_order
+=== PAUSE TestWasteSummaryService_QueryWasteSummary_REDScenarios/category_breakdown_enum_order
+=== CONT  TestWasteSummaryService_QueryWasteSummary_REDScenarios/empty_data
+=== CONT  TestWasteSummaryService_QueryWasteSummary_REDScenarios/projection_with_elapsed_days_greater_than_zero
+=== CONT  TestWasteSummaryService_QueryWasteSummary_REDScenarios/top_causes_with_three_categories
+=== CONT  TestWasteSummaryService_QueryWasteSummary_REDScenarios/category_breakdown_enum_order
+=== CONT  TestWasteSummaryService_QueryWasteSummary_REDScenarios/single_entry_and_single_insight
+=== CONT  TestWasteSummaryService_QueryWasteSummary_REDScenarios/waste_percent_with_zero_spend
+=== CONT  TestWasteSummaryService_QueryWasteSummary_REDScenarios/daily_trend_contiguous_days_including_zeros
+=== CONT  TestWasteSummaryService_QueryWasteSummary_REDScenarios/entry_with_no_insight
+=== CONT  TestWasteSummaryService_QueryWasteSummary_REDScenarios/missing_referenced_entry_id
+=== CONT  TestWasteSummaryService_QueryWasteSummary_REDScenarios/one_entry_referenced_by_two_insights_of_different_severities
+=== CONT  TestWasteSummaryService_QueryWasteSummary_REDScenarios/projection_with_elapsed_days_equals_zero
+=== CONT  TestWasteSummaryService_QueryWasteSummary_REDScenarios/top_causes_with_eight_categories
+--- PASS: TestWasteSummaryService_QueryWasteSummary_REDScenarios (0.00s)
+    --- PASS: TestWasteSummaryService_QueryWasteSummary_REDScenarios/empty_data (0.00s)
+    --- PASS: TestWasteSummaryService_QueryWasteSummary_REDScenarios/projection_with_elapsed_days_greater_than_zero (0.00s)
+    --- PASS: TestWasteSummaryService_QueryWasteSummary_REDScenarios/single_entry_and_single_insight (0.00s)
+    --- PASS: TestWasteSummaryService_QueryWasteSummary_REDScenarios/waste_percent_with_zero_spend (0.00s)
+    --- PASS: TestWasteSummaryService_QueryWasteSummary_REDScenarios/daily_trend_contiguous_days_including_zeros (0.00s)
+    --- PASS: TestWasteSummaryService_QueryWasteSummary_REDScenarios/top_causes_with_three_categories (0.00s)
+    --- PASS: TestWasteSummaryService_QueryWasteSummary_REDScenarios/category_breakdown_enum_order (0.00s)
+    --- PASS: TestWasteSummaryService_QueryWasteSummary_REDScenarios/missing_referenced_entry_id (0.00s)
+    --- PASS: TestWasteSummaryService_QueryWasteSummary_REDScenarios/one_entry_referenced_by_two_insights_of_different_severities (0.00s)
+    --- PASS: TestWasteSummaryService_QueryWasteSummary_REDScenarios/entry_with_no_insight (0.00s)
+    --- PASS: TestWasteSummaryService_QueryWasteSummary_REDScenarios/projection_with_elapsed_days_equals_zero (0.00s)
+    --- PASS: TestWasteSummaryService_QueryWasteSummary_REDScenarios/top_causes_with_eight_categories (0.00s)
+PASS
+ok  	llm-budget-tracker/internal/service	1.006s

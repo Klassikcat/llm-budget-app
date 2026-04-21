@@ -1,0 +1,10 @@
+=== RUN   TestInsightsLogs_WithData
+--- PASS: TestInsightsLogs_WithData (0.00s)
+=== RUN   TestInsightsLogs_Empty
+--- PASS: TestInsightsLogs_Empty (0.00s)
+=== RUN   TestInsightsLogs_SelectionOutOfRange
+--- PASS: TestInsightsLogs_SelectionOutOfRange (0.00s)
+=== RUN   TestInsightTabsChrome
+--- PASS: TestInsightTabsChrome (0.00s)
+PASS
+ok  	llm-budget-tracker/internal/adapters/tui	0.002s

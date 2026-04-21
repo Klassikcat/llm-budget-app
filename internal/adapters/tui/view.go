@@ -29,7 +29,12 @@ func renderView(m *model, width int) string {
 	case viewSubscriptionList:
 		return renderSubscriptionList(m, width)
 	case viewInsightList:
-		return strings.Join([]string{renderViewportChrome(m, width), renderInsightListBody(m, width)}, "\n")
+		return strings.Join([]string{
+			renderHeader(m, width),
+			titleStyle.Render("Insights"),
+			renderInsightTabs(m.insightTab, width),
+			bodyForInsightTab(*m, width),
+		}, "\n")
 	case viewInsightDetail:
 		return strings.Join([]string{renderViewportChrome(m, width), renderInsightDetailBody(m, width)}, "\n")
 	case viewGraphs:
@@ -42,7 +47,7 @@ func renderView(m *model, width int) string {
 func renderViewportChrome(m *model, width int) string {
 	switch m.mode {
 	case viewInsightList:
-		return strings.Join([]string{renderHeader(m, width), titleStyle.Render("Insights")}, "\n")
+		return strings.Join([]string{renderHeader(m, width), titleStyle.Render("Insights"), renderInsightTabs(m.insightTab, width)}, "\n")
 	case viewInsightDetail:
 		return strings.Join([]string{renderHeader(m, width), titleStyle.Render("Insight Detail")}, "\n")
 	default:
@@ -183,25 +188,15 @@ func renderSubscriptionList(m *model, width int) string {
 	return strings.Join(sections, "\n")
 }
 
-func renderInsightListBody(m *model, width int) string {
-	lines := []string{}
-	if len(m.insights) == 0 {
-		lines = append(lines,
-			truncateLine("No detector findings are stored for this month yet.", width),
-			helpStyle.Render(truncateLine("Press Esc to return or r to reload.", width)),
-		)
-		return strings.Join(lines, "\n\n")
+func bodyForInsightTab(m model, width int) string {
+	switch m.insightTab {
+	case insightTabLogs:
+		return renderInsightsLogs(m.insights, m.insightSelection, width)
+	case insightTabDashboard:
+		fallthrough
+	default:
+		return renderInsightsDashboard(m.wasteSummaryData, width)
 	}
-	for i, insight := range m.insights {
-		line := fmt.Sprintf("%s  %-28s  %s  %s", insight.DetectedAt.Local().Format(time.DateTime), string(insight.Category), string(insight.Severity), insight.InsightID)
-		if i == m.insightSelection {
-			lines = append(lines, focusStyle.Render(truncateLine("> "+line, width)))
-		} else {
-			lines = append(lines, truncateLine("  "+line, width))
-		}
-	}
-	lines = append(lines, mutedStyle.Render(truncateLine("Enter opens privacy-safe detail metadata. Prompt or response text is never shown here.", width)))
-	return strings.Join(lines, "\n")
 }
 
 func renderInsightDetailBody(m *model, width int) string {
@@ -409,7 +404,7 @@ func renderHelp(mode viewMode) string {
 	case viewSubscriptionList:
 		return "↑↓ choose subscription • d deletes • r refreshes • Esc returns • q quits"
 	case viewInsightList:
-		return "↑↓ or h/j/k/l pick insight • Enter opens detail • Esc returns • r refresh • q quits"
+		return "Tab/Shift+Tab cycle tabs • ↑↓ move • Enter detail • r refresh • Esc back • q quit"
 	case viewInsightDetail:
 		return "↑↓ or h/j/k/l scroll • PgUp/PgDn page • Esc returns • q quits"
 	case viewGraphs:
@@ -483,6 +478,22 @@ func renderGraphTabs(active graphTab, width int) string {
 	return truncateLine(strings.Join(parts, "  •  "), width)
 }
 
+func renderInsightTabs(active insightTab, width int) string {
+	tabs := []insightTab{insightTabDashboard, insightTabLogs}
+
+	parts := make([]string, 0, len(tabs))
+	for _, tab := range tabs {
+		label := insightTabLabel(tab)
+		if tab == active {
+			parts = append(parts, focusStyle.Render("["+label+"]"))
+			continue
+		}
+		parts = append(parts, mutedStyle.Render(label))
+	}
+
+	return truncateLine(strings.Join(parts, "  •  "), width)
+}
+
 func renderGraphPlaceholder(m *model, width int) string {
 	lines := []string{truncateLine("Active tab: "+graphTabLabel(m.graphTab), width)}
 
@@ -528,6 +539,17 @@ func graphTabLabel(tab graphTab) string {
 		return "Token Breakdown"
 	default:
 		return "Unknown Graph"
+	}
+}
+
+func insightTabLabel(tab insightTab) string {
+	switch tab {
+	case insightTabDashboard:
+		return "Dashboard"
+	case insightTabLogs:
+		return "Logs"
+	default:
+		return "Unknown Insight Tab"
 	}
 }
 

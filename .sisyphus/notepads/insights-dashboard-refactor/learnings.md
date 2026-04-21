@@ -1,0 +1,5 @@
+- Reused the existing graphTab pattern directly in model.go: enum block near the top, state field beside graphTab, default initialization in newModel, and tab cycling localized to updateInsightList without touching view.go.
+- `internal/service` test files share package-level helpers, so new WasteSummary tests need unique helper names to avoid redeclaration with existing subscription/budget tests.
+- Existing service tests prefer small stub repositories that clone slices on return; matching that pattern keeps new RED scaffolding consistent with `dashboard_query_test.go`.
+- WasteSummary's `WasteByDetector.InsightCount` is driven by the month’s raw insight counts per detector, not by the number of entries ultimately attributed after W1 ownership ranking; missing-entry and losing-detector cases still preserve the category count.
+- Extracting the Logs sub-tab added a category-summary header line above the rows, so `insightListSelectionLine` must include a +1 offset in Logs mode or viewport scrolling will hide the selected row during regression tests.
