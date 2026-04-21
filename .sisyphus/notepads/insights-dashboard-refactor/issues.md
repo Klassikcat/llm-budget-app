@@ -1,0 +1,5 @@
+- T3 intentionally leaves TestInsightTabTransitions RED on invariant I3: Enter on the new Dashboard sub-tab still falls through to the legacy detail-open path until T6 finishes key routing.
+- The plan requires an `elapsed_days == 0` projection case even though normal in-month clocks count the current day inclusively; the RED suite models this by setting the test clock just before the requested month starts.
+- After T6, `TestInsightTabTransitions` and the detail-return tests pass, but several older package tests still encode pre-T6 behavior (`Enter` from Dashboard opens detail, and `h/l` are selection keys rather than tab switches), so `go test ./internal/adapters/tui/... -race` remains red until those stale expectations are updated.
+- T7 CLI wiring needs `flag.ErrHelp` treated as a normal exit in `internal/adapters/tui/run.go`; otherwise `cmd/tui/main.go` escalates `--help` into a fatal log despite printing the correct usage text.
+- T8 environment gotcha: `tmux` is not installed in this runner (`tmux: command not found`), so the evidence run had to fall back to repo-local TUI model rendering with real `/tmp` SQLite fixtures instead of live tmux pane capture.

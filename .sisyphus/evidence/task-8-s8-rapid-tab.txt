@@ -1,0 +1,38 @@
+LLM Budget Tracker
+Insight List • April 2026
+Alert status: no stored alerts for this month.
+Loading insight dashboard...
+Tab/Shift+Tab cycle tabs • ↑↓ or j/k pick insight in Logs • Enter opens detail in Logs • Esc returns • r refresh • q …
+Insights
+Categories: context_avalanche 2 · tool_schema_bloat 2 · missed_prompt_caching 1                                       
+  2026-04-04 09:00:00  context_avalanche             high  qa-insight-1                                               
+> 2026-04-06 09:00:00  tool_schema_bloat             medium  qa-insight-2                                             
+  2026-04-10 09:00:00  missed_prompt_caching         high  qa-insight-3                                               
+  2026-04-13 09:00:00  context_avalanche             medium  qa-insight-4                                             
+  2026-04-19 09:00:00  tool_schema_bloat             low  qa-insight-5                                                
+Enter opens privacy-safe detail metadata. Prompt or response text is never shown here.                                
+                                                                                                                      
+                                                                                                                      
+                                                                                                                      
+                                                                                                                      
+                                                                                                                      
+                                                                                                                      
+                                                                                                                      
+                                                                                                                      
+                                                                                                                      
+                                                                                                                      
+                                                                                                                      
+                                                                                                                      
+                                                                                                                      
+                                                                                                                      
+                                                                                                                      
+                                                                                                                      
+                                                                                                                      
+                                                                                                                      
+                                                                                                                      
+                                                                                                                      
+                                                                                                                      
+                                                                                                                      
+                                                                                                                      
+                                                                                                                      
+                                                                                                                      

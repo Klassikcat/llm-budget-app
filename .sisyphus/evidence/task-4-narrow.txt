@@ -1,0 +1,1 @@
+internal/adapters/tui/testdata/insights_dashboard_narrow.golden

@@ -1,0 +1,96 @@
+=== RUN   TestWasteSummaryService_QueryWasteSummary_REDScenarios
+=== PAUSE TestWasteSummaryService_QueryWasteSummary_REDScenarios
+=== CONT  TestWasteSummaryService_QueryWasteSummary_REDScenarios
+=== RUN   TestWasteSummaryService_QueryWasteSummary_REDScenarios/empty_data
+=== PAUSE TestWasteSummaryService_QueryWasteSummary_REDScenarios/empty_data
+=== RUN   TestWasteSummaryService_QueryWasteSummary_REDScenarios/single_entry_and_single_insight
+=== PAUSE TestWasteSummaryService_QueryWasteSummary_REDScenarios/single_entry_and_single_insight
+=== RUN   TestWasteSummaryService_QueryWasteSummary_REDScenarios/one_entry_referenced_by_two_insights_of_different_severities
+=== PAUSE TestWasteSummaryService_QueryWasteSummary_REDScenarios/one_entry_referenced_by_two_insights_of_different_severities
+=== RUN   TestWasteSummaryService_QueryWasteSummary_REDScenarios/entry_with_no_insight
+=== PAUSE TestWasteSummaryService_QueryWasteSummary_REDScenarios/entry_with_no_insight
+=== RUN   TestWasteSummaryService_QueryWasteSummary_REDScenarios/missing_referenced_entry_id
+=== PAUSE TestWasteSummaryService_QueryWasteSummary_REDScenarios/missing_referenced_entry_id
+=== RUN   TestWasteSummaryService_QueryWasteSummary_REDScenarios/projection_with_elapsed_days_equals_zero
+=== PAUSE TestWasteSummaryService_QueryWasteSummary_REDScenarios/projection_with_elapsed_days_equals_zero
+=== RUN   TestWasteSummaryService_QueryWasteSummary_REDScenarios/projection_with_elapsed_days_greater_than_zero
+=== PAUSE TestWasteSummaryService_QueryWasteSummary_REDScenarios/projection_with_elapsed_days_greater_than_zero
+=== RUN   TestWasteSummaryService_QueryWasteSummary_REDScenarios/waste_percent_with_zero_spend
+=== PAUSE TestWasteSummaryService_QueryWasteSummary_REDScenarios/waste_percent_with_zero_spend
+=== RUN   TestWasteSummaryService_QueryWasteSummary_REDScenarios/daily_trend_contiguous_days_including_zeros
+=== PAUSE TestWasteSummaryService_QueryWasteSummary_REDScenarios/daily_trend_contiguous_days_including_zeros
+=== RUN   TestWasteSummaryService_QueryWasteSummary_REDScenarios/top_causes_with_three_categories
+=== PAUSE TestWasteSummaryService_QueryWasteSummary_REDScenarios/top_causes_with_three_categories
+=== RUN   TestWasteSummaryService_QueryWasteSummary_REDScenarios/top_causes_with_eight_categories
+=== PAUSE TestWasteSummaryService_QueryWasteSummary_REDScenarios/top_causes_with_eight_categories
+=== RUN   TestWasteSummaryService_QueryWasteSummary_REDScenarios/category_breakdown_enum_order
+=== PAUSE TestWasteSummaryService_QueryWasteSummary_REDScenarios/category_breakdown_enum_order
+=== CONT  TestWasteSummaryService_QueryWasteSummary_REDScenarios/empty_data
+=== CONT  TestWasteSummaryService_QueryWasteSummary_REDScenarios/daily_trend_contiguous_days_including_zeros
+=== CONT  TestWasteSummaryService_QueryWasteSummary_REDScenarios/single_entry_and_single_insight
+=== NAME  TestWasteSummaryService_QueryWasteSummary_REDScenarios/empty_data
+    waste_summary_test.go:275: period mismatch
+        want: domain.MonthlyPeriod{StartAt:time.Date(2026, time.April, 1, 0, 0, 0, 0, time.UTC), EndExclusive:time.Date(2026, time.May, 1, 0, 0, 0, 0, time.UTC)}
+         got: domain.MonthlyPeriod{StartAt:time.Date(1, time.January, 1, 0, 0, 0, 0, time.UTC), EndExclusive:time.Date(1, time.January, 1, 0, 0, 0, 0, time.UTC)}
+=== NAME  TestWasteSummaryService_QueryWasteSummary_REDScenarios/single_entry_and_single_insight
+    waste_summary_test.go:275: period mismatch
+        want: domain.MonthlyPeriod{StartAt:time.Date(2026, time.April, 1, 0, 0, 0, 0, time.UTC), EndExclusive:time.Date(2026, time.May, 1, 0, 0, 0, 0, time.UTC)}
+         got: domain.MonthlyPeriod{StartAt:time.Date(1, time.January, 1, 0, 0, 0, 0, time.UTC), EndExclusive:time.Date(1, time.January, 1, 0, 0, 0, 0, time.UTC)}
+=== CONT  TestWasteSummaryService_QueryWasteSummary_REDScenarios/category_breakdown_enum_order
+=== CONT  TestWasteSummaryService_QueryWasteSummary_REDScenarios/missing_referenced_entry_id
+=== NAME  TestWasteSummaryService_QueryWasteSummary_REDScenarios/daily_trend_contiguous_days_including_zeros
+    waste_summary_test.go:275: daily trend mismatch
+        want: []domain.WasteTrendPoint{domain.WasteTrendPoint{Day:time.Date(2026, time.April, 1, 0, 0, 0, 0, time.UTC), WasteCostUSD:4}, domain.WasteTrendPoint{Day:time.Date(2026, time.April, 2, 0, 0, 0, 0, time.UTC), WasteCostUSD:0}, domain.WasteTrendPoint{Day:time.Date(2026, time.April, 3, 0, 0, 0, 0, time.UTC), WasteCostUSD:6}}
+         got: []domain.WasteTrendPoint(nil)
+=== CONT  TestWasteSummaryService_QueryWasteSummary_REDScenarios/top_causes_with_eight_categories
+    waste_summary_test.go:275: top causes mismatch
+        want: []domain.WasteByDetector{domain.WasteByDetector{Category:"context_avalanche", AttributedCostUSD:8, InsightCount:1}, domain.WasteByDetector{Category:"repeated_file_reads", AttributedCostUSD:7, InsightCount:1}, domain.WasteByDetector{Category:"retry_amplification", AttributedCostUSD:6, InsightCount:1}, domain.WasteByDetector{Category:"over_qualified_model_choice", AttributedCostUSD:5, InsightCount:1}, domain.WasteByDetector{Category:"tool_schema_bloat", AttributedCostUSD:4, InsightCount:1}}
+         got: []domain.WasteByDetector(nil)
+=== NAME  TestWasteSummaryService_QueryWasteSummary_REDScenarios/missing_referenced_entry_id
+    waste_summary_test.go:275: total spend mismatch
+        want: 5
+         got: 0
+=== CONT  TestWasteSummaryService_QueryWasteSummary_REDScenarios/projection_with_elapsed_days_greater_than_zero
+    waste_summary_test.go:275: projected waste mismatch
+        want: 30
+         got: 0
+=== CONT  TestWasteSummaryService_QueryWasteSummary_REDScenarios/projection_with_elapsed_days_equals_zero
+    waste_summary_test.go:275: projected waste mismatch
+        want: 9
+         got: 0
+=== CONT  TestWasteSummaryService_QueryWasteSummary_REDScenarios/top_causes_with_three_categories
+    waste_summary_test.go:275: top causes mismatch
+        want: []domain.WasteByDetector{domain.WasteByDetector{Category:"context_avalanche", AttributedCostUSD:10, InsightCount:1}, domain.WasteByDetector{Category:"planning_tax", AttributedCostUSD:8, InsightCount:1}, domain.WasteByDetector{Category:"zombie_loops", AttributedCostUSD:6, InsightCount:1}}
+         got: []domain.WasteByDetector(nil)
+=== CONT  TestWasteSummaryService_QueryWasteSummary_REDScenarios/one_entry_referenced_by_two_insights_of_different_severities
+    waste_summary_test.go:275: total waste mismatch
+        want: 20
+         got: 0
+=== CONT  TestWasteSummaryService_QueryWasteSummary_REDScenarios/entry_with_no_insight
+    waste_summary_test.go:275: total spend mismatch
+        want: 7.25
+         got: 0
+=== NAME  TestWasteSummaryService_QueryWasteSummary_REDScenarios/category_breakdown_enum_order
+    waste_summary_test.go:275: detector breakdown length mismatch
+        want: 8
+         got: 0
+=== CONT  TestWasteSummaryService_QueryWasteSummary_REDScenarios/waste_percent_with_zero_spend
+    waste_summary_test.go:275: period mismatch
+        want: domain.MonthlyPeriod{StartAt:time.Date(2026, time.April, 1, 0, 0, 0, 0, time.UTC), EndExclusive:time.Date(2026, time.May, 1, 0, 0, 0, 0, time.UTC)}
+         got: domain.MonthlyPeriod{StartAt:time.Date(1, time.January, 1, 0, 0, 0, 0, time.UTC), EndExclusive:time.Date(1, time.January, 1, 0, 0, 0, 0, time.UTC)}
+--- FAIL: TestWasteSummaryService_QueryWasteSummary_REDScenarios (0.00s)
+    --- FAIL: TestWasteSummaryService_QueryWasteSummary_REDScenarios/empty_data (0.00s)
+    --- FAIL: TestWasteSummaryService_QueryWasteSummary_REDScenarios/single_entry_and_single_insight (0.00s)
+    --- FAIL: TestWasteSummaryService_QueryWasteSummary_REDScenarios/daily_trend_contiguous_days_including_zeros (0.00s)
+    --- FAIL: TestWasteSummaryService_QueryWasteSummary_REDScenarios/top_causes_with_eight_categories (0.00s)
+    --- FAIL: TestWasteSummaryService_QueryWasteSummary_REDScenarios/missing_referenced_entry_id (0.00s)
+    --- FAIL: TestWasteSummaryService_QueryWasteSummary_REDScenarios/projection_with_elapsed_days_greater_than_zero (0.00s)
+    --- FAIL: TestWasteSummaryService_QueryWasteSummary_REDScenarios/projection_with_elapsed_days_equals_zero (0.00s)
+    --- FAIL: TestWasteSummaryService_QueryWasteSummary_REDScenarios/top_causes_with_three_categories (0.00s)
+    --- FAIL: TestWasteSummaryService_QueryWasteSummary_REDScenarios/one_entry_referenced_by_two_insights_of_different_severities (0.00s)
+    --- FAIL: TestWasteSummaryService_QueryWasteSummary_REDScenarios/entry_with_no_insight (0.00s)
+    --- FAIL: TestWasteSummaryService_QueryWasteSummary_REDScenarios/category_breakdown_enum_order (0.00s)
+    --- FAIL: TestWasteSummaryService_QueryWasteSummary_REDScenarios/waste_percent_with_zero_spend (0.00s)
+FAIL
+FAIL	llm-budget-tracker/internal/service	0.002s
+FAIL

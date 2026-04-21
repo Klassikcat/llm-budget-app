@@ -1,0 +1,20 @@
+=== RUN   TestInsightTabTransitions
+=== RUN   TestInsightTabTransitions/I1_entering_insight_list_defaults_to_Dashboard
+=== RUN   TestInsightTabTransitions/I2_tab_toggles_sub-tab_without_changing_viewMode
+=== RUN   TestInsightTabTransitions/I3_Enter_on_Dashboard_is_no-op
+=== RUN   TestInsightTabTransitions/I4_Enter_on_Logs_opens_detail_preserving_Logs_tab
+=== RUN   TestInsightTabTransitions/I5_Esc_from_detail_returns_to_insight_list_with_Logs_selected
+=== RUN   TestInsightTabTransitions/I6_top-level_i_re-entry_resets_to_Dashboard
+=== RUN   TestInsightTabTransitions/I7_row_selection_preserved_across_Dashboard_and_Logs_switches
+=== RUN   TestInsightTabTransitions/I8_exiting_and_re-entering_resets_selection_to_0
+--- PASS: TestInsightTabTransitions (0.00s)
+    --- PASS: TestInsightTabTransitions/I1_entering_insight_list_defaults_to_Dashboard (0.00s)
+    --- PASS: TestInsightTabTransitions/I2_tab_toggles_sub-tab_without_changing_viewMode (0.00s)
+    --- PASS: TestInsightTabTransitions/I3_Enter_on_Dashboard_is_no-op (0.00s)
+    --- PASS: TestInsightTabTransitions/I4_Enter_on_Logs_opens_detail_preserving_Logs_tab (0.00s)
+    --- PASS: TestInsightTabTransitions/I5_Esc_from_detail_returns_to_insight_list_with_Logs_selected (0.00s)
+    --- PASS: TestInsightTabTransitions/I6_top-level_i_re-entry_resets_to_Dashboard (0.00s)
+    --- PASS: TestInsightTabTransitions/I7_row_selection_preserved_across_Dashboard_and_Logs_switches (0.00s)
+    --- PASS: TestInsightTabTransitions/I8_exiting_and_re-entering_resets_selection_to_0 (0.00s)
+PASS
+ok  	llm-budget-tracker/internal/adapters/tui	0.002s

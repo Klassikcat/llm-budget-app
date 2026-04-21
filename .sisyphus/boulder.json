@@ -1,0 +1,90 @@
+{
+  "active_plan": "/home/shinjungtae/Projects/Personal/BudgetApps/llm-budget-tracker/.sisyphus/plans/insights-dashboard-refactor.md",
+  "started_at": "2026-04-19T08:19:59.926Z",
+  "session_ids": [
+    "ses_25b438f79ffesE2edS8YeVO4Yo",
+    "ses_2561ea50affeV6q5YYG5e3055b",
+    "ses_2561d807bffe1qcoOGUwKlmudf",
+    "ses_2561d809affexQf2UuX5b0KExq",
+    "ses_2561d807dffedld1GKfKq740dt",
+    "ses_25619ce68ffe6neJfMiaj7UuJz",
+    "ses_25619cef1ffedtFhfl5PsOdExJ",
+    "ses_2560c8aa3ffe21Av94qRpGES50",
+    "ses_256053c34ffeXng51B219m0sw9",
+    "ses_256053c68ffeFPAgYUfI7fagQH",
+    "ses_255f83218ffe0nIVyWdlEYZgRg",
+    "ses_255ee49e9ffeoMUKeo6xYMu7HX",
+    "ses_255e4a1b2ffePt3XgmvKLVCSZ7",
+    "ses_255d4596dffemDEftAGJaNjKmx",
+    "ses_255d45935ffefbR94ykSkhziDp",
+    "ses_255d459a6ffeKYULwpjyrh5zRT",
+    "ses_255d45858ffefycjGNaKZw1d20"
+  ],
+  "plan_name": "insights-dashboard-refactor",
+  "task_sessions": {
+    "todo:1": {
+      "task_key": "todo:1",
+      "task_label": "1",
+      "task_title": "Domain types + WasteSummaryService skeleton (RED)",
+      "session_id": "ses_25619cef1ffedtFhfl5PsOdExJ",
+      "agent": "Sisyphus-Junior",
+      "category": "quick",
+      "updated_at": "2026-04-20T08:04:52.422Z"
+    },
+    "todo:2": {
+      "task_key": "todo:2",
+      "task_label": "2",
+      "task_title": "WasteSummaryService implementation (GREEN)",
+      "session_id": "ses_2560c8aa3ffe21Av94qRpGES50",
+      "agent": "Sisyphus-Junior",
+      "category": "deep",
+      "updated_at": "2026-04-20T08:17:25.811Z"
+    },
+    "todo:4": {
+      "task_key": "todo:4",
+      "task_label": "4",
+      "task_title": "Dashboard sub-tab widgets rendering (with golden tests)",
+      "session_id": "ses_256053c68ffeFPAgYUfI7fagQH",
+      "agent": "Sisyphus-Junior",
+      "category": "visual-engineering",
+      "updated_at": "2026-04-20T08:29:17.752Z"
+    },
+    "todo:5": {
+      "task_key": "todo:5",
+      "task_label": "5",
+      "task_title": "Logs sub-tab rendering extraction + tab chrome",
+      "session_id": "ses_255f83218ffe0nIVyWdlEYZgRg",
+      "agent": "Sisyphus-Junior",
+      "category": "quick",
+      "updated_at": "2026-04-20T08:43:13.672Z"
+    },
+    "todo:7": {
+      "task_key": "todo:7",
+      "task_label": "7",
+      "task_title": "Integrate WasteSummaryService into TUI model + run.go",
+      "session_id": "ses_255ee49e9ffeoMUKeo6xYMu7HX",
+      "agent": "Sisyphus-Junior",
+      "category": "unspecified-high",
+      "updated_at": "2026-04-20T08:53:55.906Z"
+    },
+    "todo:8": {
+      "task_key": "todo:8",
+      "task_label": "8",
+      "task_title": "tmux end-to-end QA scenarios",
+      "session_id": "ses_255e4a1b2ffePt3XgmvKLVCSZ7",
+      "agent": "Sisyphus-Junior",
+      "category": "unspecified-high",
+      "updated_at": "2026-04-20T09:12:56.755Z"
+    },
+    "final-wave:f1": {
+      "task_key": "final-wave:f1",
+      "task_label": "F1",
+      "task_title": "**Plan Compliance Audit** — `oracle`",
+      "session_id": "ses_255d459a6ffeKYULwpjyrh5zRT",
+      "agent": "Sisyphus-Junior",
+      "category": "unspecified-high",
+      "updated_at": "2026-04-20T09:18:13.246Z"
+    }
+  },
+  "agent": "atlas"
+}

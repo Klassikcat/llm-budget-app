@@ -39,9 +39,9 @@ Per-tab evidence snippets:
   Loading graph data...
 - Model Cost:
   Model Token Usage  •  [Model Cost]  •  Daily Token Trend  •  Token Breakdown                                                              
-  #1  z-ai/glm-5.1   $38.73 (45.7%)                      │██████████████████████████████████████████████████████████████████████████████████
+  #1  z-ai/glm-5.1   $41.99 (43.3%)                      │██████████████████████████████████████████████████████████████████████████████████
                                                          │                                                                                  
-  #2  anthropic/claude-opus-4.7   $28.05 (33.1%)         │████████████████████████████████████████████████████████████▏
+  #2  anthropic/claude-opus-4.7   $34.28 (35.4%)         │█████████████████████████████████████████████████████████████
 - Daily Token Trend:
   #10  claude-haiku-4-5-20251001   $0.00 (0.0%)          │                                                                                  
                                                          │                                                                                  
@@ -52,13 +52,13 @@ Per-tab evidence snippets:
            │                                                                     ⢰⠁⢱
 - Token Breakdown:
   [Token Breakdown]                                                              
-  gpt-5.4 • 631,078,790 tokens                                                                                                              
+  gpt-5.4 • 760,530,078 tokens                                                                                                              
   ████████████████████████████████████████████████████████████                                                                              
-  ■ Input: 39,876,916 (6.3%)  ■ Output: 2,633,170 (0.4%)                                                                                    
-  ■ C.Read: 588,568,704                                                                                                                     
-  (93.3%)                     ■ C.Write: 0 (0.0%)                                                                                           
+  ■ Input: 49,650,069 (6.5%)  ■ Output: 3,094,409 (0.4%)                                                                                    
+  ■ C.Read: 707,785,600                                                                                                                     
+  (93.1%)                     ■ C.Write: 0 (0.0%)                                                                                           
                                                                                                                                             
-  z-ai/glm-5.1 • 91,512,355 tokens
+  z-ai/glm-5.1 • 95,474,546 tokens
 
 Limitations:
 - None observed in this environment.

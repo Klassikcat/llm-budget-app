@@ -1,0 +1,16 @@
+?   	llm-budget-tracker/cmd/gui	[no test files]
+?   	llm-budget-tracker/cmd/tui	[no test files]
+?   	llm-budget-tracker/db/migrations	[no test files]
+?   	llm-budget-tracker/internal/adapters	[no test files]
+?   	llm-budget-tracker/internal/adapters/fsnotify	[no test files]
+ok  	llm-budget-tracker/internal/adapters/gui	1.298s
+ok  	llm-budget-tracker/internal/adapters/openrouter	1.008s
+ok  	llm-budget-tracker/internal/adapters/parsers	1.064s
+ok  	llm-budget-tracker/internal/adapters/sqlite	1.492s
+ok  	llm-budget-tracker/internal/adapters/tui	1.172s
+ok  	llm-budget-tracker/internal/app	1.144s
+ok  	llm-budget-tracker/internal/catalog	1.007s
+ok  	llm-budget-tracker/internal/config	1.008s
+ok  	llm-budget-tracker/internal/domain	1.007s
+?   	llm-budget-tracker/internal/ports	[no test files]
+ok  	llm-budget-tracker/internal/service	1.455s

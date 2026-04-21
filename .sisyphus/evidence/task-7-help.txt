@@ -1,0 +1,5 @@
+Usage of llm-budget-tracker-tui:
+  -bootstrap-only
+    	initialize config and SQLite database, then exit
+  -db string
+    	path to SQLite database

@@ -320,7 +320,7 @@ Max Concurrent: 3 (Waves 1 & 2)
 
 ## TODOs
 
-- [ ] 1. Domain types + WasteSummaryService skeleton (RED)
+- [x] 1. Domain types + WasteSummaryService skeleton (RED)
 
   **What to do**:
   - Create `internal/domain/waste_summary.go` with the following exported types (exact signatures):
@@ -419,7 +419,7 @@ Max Concurrent: 3 (Waves 1 & 2)
   - Files: `internal/domain/waste_summary.go`, `internal/service/waste_summary.go`, `internal/service/waste_summary_test.go`
   - Pre-commit: `go build ./internal/domain/... ./internal/service/... && gofmt -l internal/ | grep -q . && exit 1 || exit 0`
 
-- [ ] 2. WasteSummaryService implementation (GREEN)
+- [x] 2. WasteSummaryService implementation (GREEN)
 
   **What to do**:
   - Implement `QueryWasteSummary` in `internal/service/waste_summary.go` per Rules W1–W7 from plan's § Waste Attribution Rules.
@@ -507,7 +507,7 @@ Max Concurrent: 3 (Waves 1 & 2)
   - Files: `internal/service/waste_summary.go`, `internal/service/waste_summary_test.go` (if extended)
   - Pre-commit: `go test ./internal/service/... -run WasteSummary -count=1 -race`
 
-- [ ] 3. `insightTab` state machine with failing transition tests (RED)
+- [x] 3. `insightTab` state machine with failing transition tests (RED)
 
   **What to do**:
   - Edit `internal/adapters/tui/model.go` — ADD ONLY (no removals):
@@ -595,7 +595,7 @@ Max Concurrent: 3 (Waves 1 & 2)
   - Files: `internal/adapters/tui/model.go`, `internal/adapters/tui/model_test.go`
   - Pre-commit: `go build ./internal/adapters/tui/...`
 
-- [ ] 4. Dashboard sub-tab widgets rendering (with golden tests)
+- [x] 4. Dashboard sub-tab widgets rendering (with golden tests)
 
   **What to do**:
   - Create `internal/adapters/tui/insights_dashboard_view.go` containing:
@@ -698,7 +698,7 @@ Max Concurrent: 3 (Waves 1 & 2)
   - Files: `internal/adapters/tui/insights_dashboard_view.go`, `insights_dashboard_view_test.go`, `testdata/insights_dashboard_*.golden`
   - Pre-commit: `go test ./internal/adapters/tui/... -run InsightsDashboard -count=1`
 
-- [ ] 5. Logs sub-tab rendering extraction + tab chrome
+- [x] 5. Logs sub-tab rendering extraction + tab chrome
 
   **What to do**:
   - Create `internal/adapters/tui/insights_logs_view.go` containing:
@@ -791,7 +791,7 @@ Max Concurrent: 3 (Waves 1 & 2)
   - Files: `internal/adapters/tui/insights_logs_view.go`, `insights_logs_view_test.go`, `view.go`, `testdata/insight*.golden`
   - Pre-commit: `go test ./internal/adapters/tui/... -count=1`
 
-- [ ] 6. Sub-tab key handling in Update() (GREEN for T3 tests)
+- [x] 6. Sub-tab key handling in Update() (GREEN for T3 tests)
 
   **What to do**:
   - Edit `internal/adapters/tui/model.go` — `Update()` function. Locate the case handling `viewInsightList` (~line 420–520). Modify to:
@@ -882,7 +882,7 @@ Max Concurrent: 3 (Waves 1 & 2)
   - Files: `internal/adapters/tui/model.go`, `internal/adapters/tui/view.go` (help text only)
   - Pre-commit: `go test ./internal/adapters/tui/... -count=1 -race`
 
-- [ ] 7. Integrate WasteSummaryService into TUI model + run.go
+- [x] 7. Integrate WasteSummaryService into TUI model + run.go
 
   **What to do**:
   - Edit `internal/adapters/tui/model.go`:
@@ -986,7 +986,7 @@ Max Concurrent: 3 (Waves 1 & 2)
   - Files: `internal/adapters/tui/model.go`, `internal/adapters/tui/run.go`, `cmd/tui/main.go` (and any test helpers updated)
   - Pre-commit: `go build ./cmd/tui && go test ./... -count=1`
 
-- [ ] 8. tmux end-to-end QA scenarios
+- [x] 8. tmux end-to-end QA scenarios
 
   **What to do**:
   - Use `interactive_bash` (tmux) to launch the TUI against a seeded SQLite fixture and verify user-visible behavior.
@@ -1132,19 +1132,19 @@ Max Concurrent: 3 (Waves 1 & 2)
 >
 > **Do NOT auto-proceed after verification. Wait for user's explicit approval before marking work complete.**
 
-- [ ] F1. **Plan Compliance Audit** — `oracle`
+- [x] F1. **Plan Compliance Audit** — `oracle`
   Read this plan end-to-end. For each "Must Have": verify implementation exists (open file, run command, check output). For each "Must NOT Have": search codebase for forbidden patterns — reject with file:line if found (e.g., `rg "bubblezone" go.mod`, `rg "internal/adapters/gui" git-diff`, `rg "month.*toggle|custom.*range" internal/adapters/tui/`). Verify all evidence files exist in `.sisyphus/evidence/`. Confirm 6 widgets render with EXACT labels from § Dashboard Widgets. Confirm state machine invariants I1–I8 via reading tests.
   Output: `Must Have [N/N] | Must NOT Have [N/N] | Tasks [N/N] | VERDICT: APPROVE/REJECT with file:line for any failures`
 
-- [ ] F2. **Code Quality Review** — `unspecified-high`
+- [x] F2. **Code Quality Review** — `unspecified-high`
   Run `go build ./... 2>&1`, `go test ./... -count=1 -race 2>&1`, `go vet ./...`, `gofmt -l internal/`. Review all changed files (new + edited) for: `interface{}` without justification, `panic()` in production paths, empty `if err != nil { }` branches, `fmt.Println` / `log.Println` debug leftovers, TODO/FIXME comments added in this session, commented-out code blocks, unused imports, generic names (data/result/item/temp). Specifically audit `WasteSummaryService` for: wildcard allocations, unbounded slice appends without pre-size, map iteration without sorted output (determinism hazard for tests).
   Output: `Build [PASS/FAIL] | Tests [N pass / N fail] | Vet [PASS/FAIL] | Gofmt [N files clean] | Files [N clean / N issues] | VERDICT`
 
-- [ ] F3. **Real Manual QA** — `unspecified-high`
+- [x] F3. **Real Manual QA** — `unspecified-high`
   Start from clean state (fresh `/tmp/llmbudget-qa.sqlite3`). Seed with the documented fixture (30 entries, 5 insights, etc.). Execute EVERY QA scenario from EVERY task (T1–T8) using tmux. Capture screenshots of terminal via `tmux capture-pane -p > .sisyphus/evidence/final-qa/{scenario}.txt`. Test cross-task integration: enter Insights → Dashboard renders → Tab to Logs → Enter on row → Detail → Esc → back to Logs (not Dashboard) → Tab → Dashboard → Esc → top level. Test edge cases: empty DB (all zeros, no crash), narrow terminal (80 cols, 60 cols), rapid Tab presses (no state corruption).
   Output: `Scenarios [N/N pass] | Integration [N/N] | Edge Cases [N tested] | Evidence files [N created] | VERDICT`
 
-- [ ] F4. **Scope Fidelity Check** — `deep`
+- [x] F4. **Scope Fidelity Check** — `deep`
   For each task (T1–T8): read task's "What to do" spec, read actual `git diff` for the commit(s) associated, verify 1:1 correspondence (everything specified was built; nothing beyond spec was added). Check each "Must NOT Have" guardrail against `git diff`: no changes to `internal/adapters/gui/**`, no changes to `internal/service/detector_set_*.go`, no SQLite migrations, no changes to `go.mod` beyond necessary, no changes to `viewDashboard`/`viewGraphs` top-level logic. Detect cross-task contamination: e.g., T4 (Dashboard rendering) should NOT touch `model.go` `Update()` logic (that's T6). Flag unaccounted changes.
   Output: `Tasks [N/N compliant] | Contamination [CLEAN / N issues with file:line] | Unaccounted [CLEAN / N files] | Guardrails violated [NONE / list] | VERDICT`
 
