@@ -1,16 +1,25 @@
-.PHONY: test build-tui build-gui run-gui-dev lint
+.PHONY: test build build/tui build/gui build/gui-linux build/gui-macos run/gui-dev lint clean
+
+WAILS ?= go run github.com/wailsapp/wails/v2/cmd/wails@v2.10.2
+WAILS_BUILD_FLAGS ?= -m -nosyncgomod
+WAILS_LINUX_PLATFORM ?= linux/amd64
+WAILS_MACOS_PLATFORM ?= darwin/universal
 
 test:
 	go test ./...
 
+build: build/gui
+
 build/tui:
 	go build ./cmd/tui
 
-build/gui:
+build/gui: build/gui-linux
+
+build/gui-linux:
 	@if pkg-config --exists webkit2gtk-4.1; then \
-		go build -tags desktop,production,webkit2_41 -o gui.bin ./cmd/gui; \
+		$(WAILS) build $(WAILS_BUILD_FLAGS) -platform $(WAILS_LINUX_PLATFORM) -tags webkit2_41; \
 	elif pkg-config --exists webkit2gtk-4.0; then \
-		go build -tags desktop,production -o gui.bin ./cmd/gui; \
+		$(WAILS) build $(WAILS_BUILD_FLAGS) -platform $(WAILS_LINUX_PLATFORM); \
 	elif grep -q 'Ubuntu 24\.04' /etc/os-release 2>/dev/null; then \
 		printf '%s\n' 'Missing WebKitGTK development headers. Install: sudo apt install libwebkit2gtk-4.1-dev' >&2; \
 		exit 1; \
@@ -19,8 +28,12 @@ build/gui:
 		exit 1; \
 	fi
 
+build/gui-macos:
+	$(WAILS) build $(WAILS_BUILD_FLAGS) -platform $(WAILS_MACOS_PLATFORM)
+
 clean:
-	@rm -f ./gui.bin ./tui
+	@rm -f ./gui.bin ./llm-budget-tracker-gui ./tui
+	@rm -rf ./build/bin
 
 run/gui-dev:
 	@if pkg-config --exists webkit2gtk-4.1; then \

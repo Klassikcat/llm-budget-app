@@ -1,0 +1,90 @@
+:root {
+  /* Spacing */
+  --spacing-xs: 2px;
+  --spacing-sm: 4px;
+  --spacing-md: 8px;
+  --spacing-lg: 16px;
+  --spacing-xl: 24px;
+  --spacing-2xl: 32px;
+  
+  /* Dense dashboard tokens */
+  --spacing-panel-padding: 12px;
+  --spacing-grid-gap: 8px;
+  --spacing-metric-sizing: 24px;
+  
+  /* Typography */
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.875rem;
+  --font-size-base: 1rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.25rem;
+  
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  
+  --radius-compact: 4px;
+}
+
+:root, .dark, html.dark {
+  /* Dark Theme Grafana/Datadog-style tokens (DEFAULT) */
+  --color-background: #0f1117;
+  --color-background-hover: #1a1d23;
+  --color-background-active: #2d3748;
+  
+  --color-card: #1a1d23;
+  --color-card-hover: #2d3748;
+  
+  --color-text: #d8d9da;
+  --color-text-muted: #a0aec0;
+  
+  --color-primary: #5eead4; /* Cyan/Aquamarine (focusStyle 86) */
+  --color-success: #29a352; /* Green */
+  --color-warning: #f59e0b; /* Amber/Yellow */
+  --color-danger: #ff5f5f; /* Red/Coral (errorStyle 203) */
+  --color-muted: #808080; /* Gray (mutedStyle 244) */
+  
+  --color-border: #4a5568;
+  --color-border-hover: #718096;
+  --color-panel-border: #2d3748;
+  
+  --color-status-normal: #5eead4;
+  --color-status-success: #29a352;
+  --color-status-warning: #f59e0b;
+  --color-status-danger: #ff5f5f;
+  --color-status-inactive: #4a5568;
+
+  --shadow-glow: 0 0 8px rgba(94, 234, 212, 0.4);
+}
+
+.light, html.light {
+  /* Light Theme Grafana/Datadog-style tokens */
+  --color-background: #f5f5f5;
+  --color-background-hover: #e2e8f0;
+  --color-background-active: #cbd5e1;
+  
+  --color-card: #ffffff;
+  --color-card-hover: #f8fafc;
+  
+  --color-text: #1a1d23;
+  --color-text-muted: #4a5568;
+  
+  --color-primary: #0052cc; /* Blue/Cyan */
+  --color-success: #107c41; /* Green */
+  --color-warning: #d97706; /* Amber/Yellow */
+  --color-danger: #c53030; /* Red */
+  --color-muted: #718096; /* Gray */
+  
+  --color-border: #cbd5e1;
+  --color-border-hover: #94a3b8;
+  --color-panel-border: #e2e8f0;
+  
+  --color-status-normal: #0052cc;
+  --color-status-success: #107c41;
+  --color-status-warning: #d97706;
+  --color-status-danger: #c53030;
+  --color-status-inactive: #a0aec0;
+
+  --shadow-glow: 0 0 8px rgba(0, 82, 204, 0.2);
+}

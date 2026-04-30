@@ -1,0 +1,6 @@
+Scenarios 11/11 pass
+Integration 3/3
+Edge Cases 3 tested
+Console issues 0
+Network issues 0
+VERDICT APPROVE

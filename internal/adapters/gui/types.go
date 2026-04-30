@@ -48,6 +48,8 @@ type DashboardBudgetResponse struct {
 	CurrentSpendUSD            float64   `json:"currentSpendUsd"`
 	RemainingUSD               float64   `json:"remainingUsd"`
 	TriggeredThresholdPercents []float64 `json:"triggeredThresholdPercents"`
+	WarningThresholdPercent    int       `json:"warningThresholdPercent"`
+	CriticalThresholdPercent   int       `json:"criticalThresholdPercent"`
 	BudgetOverrunActive        bool      `json:"budgetOverrunActive"`
 	Currency                   string    `json:"currency"`
 }
@@ -94,6 +96,8 @@ func toDashboardResponse(snapshot service.DashboardSnapshot) DashboardResponse {
 			CurrentSpendUSD:            budget.CurrentSpendUSD,
 			RemainingUSD:               budget.RemainingUSD,
 			TriggeredThresholdPercents: triggered,
+			WarningThresholdPercent:    budget.WarningThresholdPercent,
+			CriticalThresholdPercent:   budget.CriticalThresholdPercent,
 			BudgetOverrunActive:        budget.BudgetOverrunActive,
 			Currency:                   budget.Currency,
 		})

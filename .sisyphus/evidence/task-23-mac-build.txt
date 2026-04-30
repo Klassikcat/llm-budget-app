@@ -1,0 +1,32 @@
+Task 23 macOS Wails build evidence
+Command: make build/gui-macos
+Resolved target platform: darwin/universal
+Build output:
+go run github.com/wailsapp/wails/v2/cmd/wails@v2.10.2 build -m -nosyncgomod -platform darwin/universal
+[0;92mWails CLI[0m [0;31mv2.10.2[0m
+
+
+# [1;33m[1;33mBuild Options[0m
+[1;33m[0m[0m
+Platform(s)       [90m[90m | [0m[0mdarwin/universal                                                                                
+Compiler          [90m[90m | [0m[0m/usr/bin/go                                                                                     
+Skip Bindings     [90m[90m | [0m[0mfalse                                                                                           
+Build Mode        [90m[90m | [0m[0mproduction                                                                                      
+Devtools          [90m[90m | [0m[0mfalse                                                                                           
+Frontend Directory[90m[90m | [0m[0m/home/shinjungtae/Projects/Personal/BudgetApps/llm-budget-tracker/internal/adapters/gui/frontend
+Obfuscated        [90m[90m | [0m[0mfalse                                                                                           
+Skip Frontend     [90m[90m | [0m[0mfalse                                                                                           
+Compress          [90m[90m | [0m[0mfalse                                                                                           
+Package           [90m[90m | [0m[0mtrue                                                                                            
+Clean Bin Dir     [90m[90m | [0m[0mfalse                                                                                           
+LDFlags           [90m[90m | [0m[0m                                                                                                
+Tags              [90m[90m | [0m[0m[]                                                                                              
+Race Detector     [90m[90m | [0m[0mfalse                                                                                           
+
+
+# [1;33m[1;33mBuilding target: darwin/universal[0m
+[1;33m[0m[0m
+[30;43m[30;43m WARNING [0m[0m [33m[33mCrosscompiling to Mac not currently supported.[0m[0m
+[31;107m[31;107m ♥  [0m[0m [92m[92mIf Wails is useful to you or your company, please consider sponsoring the project:[0m[0m
+https://github.com/sponsors/leaanthony
+Exit status: 0

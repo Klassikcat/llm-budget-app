@@ -1,0 +1,14 @@
+
+> llm-budget-tracker-gui@0.1.0 test
+> vitest run
+
+
+ RUN  v3.2.4 /home/shinjungtae/Projects/Personal/BudgetApps/llm-budget-tracker/internal/adapters/gui/frontend
+
+ ✓ src/lib/gui-scaffold.test.ts (1 test) 2ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  00:14:50
+   Duration  573ms (transform 164ms, setup 279ms, collect 5ms, tests 2ms, environment 137ms, prepare 60ms)
+

@@ -1,0 +1,64 @@
+{
+  "scenarioResults": [
+    {
+      "name": "Dashboard summary and baseline data",
+      "status": "pass"
+    },
+    {
+      "name": "Usage invalid input validation",
+      "status": "pass"
+    },
+    {
+      "name": "Usage save refreshes dashboard and history",
+      "status": "pass"
+    },
+    {
+      "name": "Subscriptions add and delete",
+      "status": "pass"
+    },
+    {
+      "name": "Budget save refreshes budget panels",
+      "status": "pass"
+    },
+    {
+      "name": "Insights detail modal",
+      "status": "pass"
+    },
+    {
+      "name": "Graphs tab and time-range switching",
+      "status": "pass"
+    },
+    {
+      "name": "Settings theme and notification toggles",
+      "status": "pass"
+    },
+    {
+      "name": "Sidebar navigation all primary routes",
+      "status": "pass"
+    },
+    {
+      "name": "Rapid actions remain stable",
+      "status": "pass"
+    },
+    {
+      "name": "Empty database states across routes",
+      "status": "pass"
+    }
+  ],
+  "scenarioPass": 11,
+  "scenarioTotal": 11,
+  "integration": {
+    "mutationRefreshUsageDashboard": "pass",
+    "mutationRefreshBudgetDashboard": "pass",
+    "subscriptionDeleteListRefresh": "pass"
+  },
+  "edgeCases": {
+    "emptyDatabase": "pass",
+    "invalidUsageInput": "pass",
+    "rapidActions": "pass"
+  },
+  "consoleMessages": [],
+  "networkIssues": [],
+  "ignoredNetworkIssues": [],
+  "verdict": "APPROVE"
+}

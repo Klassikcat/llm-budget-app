@@ -46,17 +46,23 @@ type FormsBinding struct {
 	manualEntries manualEntrySaver
 	budgets       budgetSaver
 	notifier      ports.AlertNotifier
+	databasePath  string
 	ctx           context.Context
 	clock         func() time.Time
 }
 
-func NewFormsBinding(settings settingsLoader, subscriptions subscriptionSaver, manualEntries manualEntrySaver, budgets budgetSaver, notifier ports.AlertNotifier) *FormsBinding {
+func NewFormsBinding(settings settingsLoader, subscriptions subscriptionSaver, manualEntries manualEntrySaver, budgets budgetSaver, notifier ports.AlertNotifier, databasePaths ...string) *FormsBinding {
+	databasePath := ""
+	if len(databasePaths) > 0 {
+		databasePath = strings.TrimSpace(databasePaths[0])
+	}
 	return &FormsBinding{
 		settings:      settings,
 		subscriptions: subscriptions,
 		manualEntries: manualEntries,
 		budgets:       budgets,
 		notifier:      notifier,
+		databasePath:  databasePath,
 		clock:         func() time.Time { return time.Now().UTC() },
 	}
 }
@@ -98,7 +104,7 @@ func (b *FormsBinding) LoadSettings() SettingsFormResponse {
 
 	return SettingsFormResponse{
 		Result:   successMutationResult(),
-		Settings: toSettingsFormState(settings),
+		Settings: b.toSettingsFormState(settings),
 	}
 
 }
@@ -153,7 +159,7 @@ func (b *FormsBinding) SaveSettings(input SettingsFormInput) SettingsFormRespons
 
 	return SettingsFormResponse{
 		Result:   successMutationResult(),
-		Settings: toSettingsFormState(persisted),
+		Settings: b.toSettingsFormState(persisted),
 	}
 }
 
@@ -629,7 +635,7 @@ func toFormError(err error) *FormError {
 	return &FormError{Code: "internal_error", Message: err.Error()}
 }
 
-func toSettingsFormState(settings config.Settings) SettingsFormState {
+func (b *FormsBinding) toSettingsFormState(settings config.Settings) SettingsFormState {
 	return SettingsFormState{
 		Providers: ProviderSettingsState{
 			AnthropicEnabled:  settings.Providers.Anthropic.Enabled,
@@ -683,6 +689,7 @@ func toSettingsFormState(settings config.Settings) SettingsFormState {
 			ForecastWarnings:    settings.Notifications.ForecastWarnings,
 			ProviderSyncFailure: settings.Notifications.ProviderSyncFailure,
 		},
+		DatabasePath: b.databasePath,
 	}
 }
 
@@ -703,12 +710,13 @@ func toSubscriptionPlanSettings(input SubscriptionPlanState, fallback config.Sub
 
 func toSubscriptionState(subscription domain.Subscription) SubscriptionState {
 	state := SubscriptionState{
-		Provider:   subscription.Provider.String(),
-		PlanName:   subscription.PlanName,
-		RenewalDay: subscription.RenewalDay,
-		StartsAt:   formatSubscriptionDate(subscription.StartsAt),
-		FeeUSD:     subscription.FeeUSD,
-		IsActive:   subscription.IsActive,
+		SubscriptionID: subscription.SubscriptionID,
+		Provider:       subscription.Provider.String(),
+		PlanName:       subscription.PlanName,
+		RenewalDay:     subscription.RenewalDay,
+		StartsAt:       formatSubscriptionDate(subscription.StartsAt),
+		FeeUSD:         subscription.FeeUSD,
+		IsActive:       subscription.IsActive,
 	}
 	if subscription.EndsAt != nil {
 		state.EndsAt = formatSubscriptionDate(*subscription.EndsAt)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"path/filepath"
 	"testing"
 	"time"
@@ -112,6 +113,48 @@ func TestBusyRetry(t *testing.T) {
 			t.Fatalf("attempts = %d, want 3", attempts)
 		}
 	})
+}
+
+func TestWALAllowsReadsDuringWriteTransaction(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "wal-read-during-write.sqlite3")
+
+	writer := mustBootstrapStore(t, path, Options{})
+	defer writer.Close()
+	reader := mustBootstrapStore(t, path, Options{})
+	defer reader.Close()
+
+	if _, err := writer.DB().Exec(`INSERT INTO watcher_offsets (watcher_key, source_path, byte_offset, updated_at) VALUES (?, ?, ?, ?)`, "committed", "/tmp/committed", 1, time.Now().UTC().Format(time.RFC3339Nano)); err != nil {
+		t.Fatalf("seed committed row error = %v", err)
+	}
+
+	tx, err := writer.DB().BeginTx(context.Background(), nil)
+	if err != nil {
+		t.Fatalf("BeginTx() writer error = %v", err)
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.Exec(`INSERT INTO watcher_offsets (watcher_key, source_path, byte_offset, updated_at) VALUES (?, ?, ?, ?)`, "uncommitted", "/tmp/uncommitted", 2, time.Now().UTC().Format(time.RFC3339Nano)); err != nil {
+		t.Fatalf("writer insert error = %v", err)
+	}
+
+	readDone := make(chan error, 1)
+	go func() {
+		var count int
+		err := reader.DB().QueryRow(`SELECT COUNT(*) FROM watcher_offsets`).Scan(&count)
+		if err == nil && count != 1 {
+			err = fmt.Errorf("reader row count = %d, want 1", count)
+		}
+		readDone <- err
+	}()
+
+	select {
+	case err := <-readDone:
+		if err != nil {
+			t.Fatalf("concurrent reader error = %v", err)
+		}
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("concurrent reader blocked while WAL writer transaction was open")
+	}
 }
 
 func mustBootstrapStore(t *testing.T, path string, opts Options) *Store {
