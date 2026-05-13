@@ -205,7 +205,7 @@ func (g *Graph) Refresh(ctx context.Context) error {
 	}
 
 	if g.openRouterActivitySync != nil {
-		if _, err := g.openRouterActivitySync.Sync(ctx, ports.OpenRouterActivityOptions{}); err != nil {
+		if _, _, err := g.openRouterActivitySync.AutoSync(ctx, g.Store, g.now().UTC()); err != nil {
 			g.warningRecorder.Add(fmt.Sprintf("OpenRouter activity sync warning: %v", err))
 		}
 	}
@@ -228,6 +228,13 @@ func (g *Graph) Refresh(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (g *Graph) OpenRouterActivitySyncService() *service.OpenRouterActivitySyncService {
+	if g == nil {
+		return nil
+	}
+	return g.openRouterActivitySync
 }
 
 func (g *Graph) RawNotifier() ports.AlertNotifier {
@@ -473,12 +480,18 @@ func defaultWatchTargets(homeDir string, settings config.Settings, warnings *war
 	codexParser := parsers.NewCodexParser()
 	geminiParser := newBillingModeFallbackParser(parsers.NewGeminiCLIParser(), settings.CLIBillingDefaults.GeminiCLI)
 	openCodeParser := parsers.NewOpenCodeParser()
+	openClawParser := parsers.NewOpenClawParser()
+	openClawRoot := strings.TrimSpace(os.Getenv("OPENCLAW_STATE_DIR"))
+	if openClawRoot == "" {
+		openClawRoot = filepath.Join(resolvedHome, ".openclaw")
+	}
 
 	targets := []service.WatchTarget{
 		service.NewClaudeWatchTarget(filepath.Join(resolvedHome, ".config", "claude"), claudeParser),
 		service.NewClaudeWatchTarget(filepath.Join(resolvedHome, ".claude"), claudeParser),
 		service.NewCodexWatchTarget(filepath.Join(resolvedHome, ".codex"), codexParser),
 		service.NewOpenCodeWatchTarget(filepath.Join(resolvedHome, ".local", "share", "opencode"), openCodeParser),
+		service.NewOpenClawWatchTarget(openClawRoot, openClawParser),
 	}
 
 	geminiRoot := filepath.Join(resolvedHome, ".gemini")

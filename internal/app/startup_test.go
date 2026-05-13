@@ -253,6 +253,40 @@ func TestStartupSyncsEnabledConfiguredSubscriptions(t *testing.T) {
 	assertFloatEquals(t, snapshot.Totals.SubscriptionSpendUSD, 20)
 }
 
+func TestStartupIncludesOpenClawWhenNotInstalled(t *testing.T) {
+	t.Setenv("OPENCLAW_STATE_DIR", "")
+
+	anchor := time.Date(2026, time.May, 13, 10, 0, 0, 0, time.UTC)
+	homeDir := t.TempDir()
+	paths := testPaths(t)
+	writeSettings(t, paths, func(settings config.Settings) config.Settings {
+		settings.Providers.OpenRouter.Enabled = false
+		return settings
+	})
+
+	watcher := newStubWatcher()
+	graph, err := Start(context.Background(), Options{
+		Paths:          paths,
+		HomeDir:        homeDir,
+		Notifier:       noopNotifier{},
+		SecretStore:    emptySecretStore{},
+		WatcherFactory: func() (service.FileWatcher, error) { return watcher, nil },
+		Now:            func() time.Time { return anchor },
+	})
+	if err != nil {
+		t.Fatalf("Start() error = %v", err)
+	}
+	defer graph.Close()
+
+	if graph.WatchCoordinator == nil {
+		t.Fatal("WatchCoordinator = nil, want startup to keep watcher running with warning-only missing targets")
+	}
+	assertContainsWarning(t, graph.Warnings(), "watch target openclaw unavailable")
+	if _, err := os.Stat(filepath.Join(homeDir, ".openclaw")); !os.IsNotExist(err) {
+		t.Fatalf("OpenClaw path stat error = %v, want not installed path to remain absent", err)
+	}
+}
+
 func TestStartupBootstrapOnlySkipsRefreshAndWatchers(t *testing.T) {
 	t.Parallel()
 

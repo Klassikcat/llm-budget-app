@@ -80,7 +80,7 @@ func TestDomainBillingModeMapsKnownConfigValues(t *testing.T) {
 }
 
 func TestDefaultWatchTargetsOnlyWrapClaudeAndGeminiParsers(t *testing.T) {
-	t.Parallel()
+	t.Setenv("OPENCLAW_STATE_DIR", "")
 
 	settings := config.DefaultSettings()
 	homeDir := t.TempDir()
@@ -115,6 +115,9 @@ func TestDefaultWatchTargetsOnlyWrapClaudeAndGeminiParsers(t *testing.T) {
 	}
 	if wrapped["opencode"] {
 		t.Fatalf("opencode parser should not be wrapped with billing fallback")
+	}
+	if wrapped["openclaw"] {
+		t.Fatalf("openclaw parser should not be wrapped with billing fallback")
 	}
 }
 
