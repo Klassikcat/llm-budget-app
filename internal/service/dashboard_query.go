@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"slices"
+	"strings"
 	"time"
 
 	"llm-budget-tracker/internal/domain"
@@ -56,6 +57,7 @@ type DashboardBudgetSummary struct {
 
 type DashboardRecentSession struct {
 	SessionID      string
+	SessionType    string
 	Provider       domain.ProviderName
 	BillingMode    domain.BillingMode
 	ProjectName    string
@@ -135,24 +137,27 @@ func (s *DashboardQueryService) QueryDashboard(ctx context.Context, query Dashbo
 		return DashboardSnapshot{}, err
 	}
 
-	providerSummaries := buildDashboardProviderSummaries(rollup.UsageEntries, rollup.SubscriptionFees, sessions)
-	budgetSummaries, err := buildDashboardBudgetSummaries(budgets, rollup.UsageEntries, rollup.SubscriptionFees)
+	usageEntries := filterOpenRouterBilledLocalOverlaps(rollup.UsageEntries)
+	variableSpendUSD := sumVariableUsageSpend(usageEntries)
+
+	providerSummaries := buildDashboardProviderSummaries(usageEntries, rollup.SubscriptionFees, sessions)
+	budgetSummaries, err := buildDashboardBudgetSummaries(budgets, usageEntries, rollup.SubscriptionFees)
 	if err != nil {
 		return DashboardSnapshot{}, err
 	}
-	recentSessions := buildDashboardRecentSessions(sessions, query.RecentSessionLimit)
+	recentSessions := buildDashboardRecentSessions(sessions, usageEntries, query.RecentSessionLimit)
 
 	return DashboardSnapshot{
 		Period: period,
 		Totals: DashboardTotals{
-			VariableSpendUSD:     rollup.VariableSpendUSD,
+			VariableSpendUSD:     variableSpendUSD,
 			SubscriptionSpendUSD: rollup.SubscriptionSpendUSD,
-			TotalSpendUSD:        rollup.TotalSpendUSD,
+			TotalSpendUSD:        variableSpendUSD + rollup.SubscriptionSpendUSD,
 		},
 		ProviderSummaries: providerSummaries,
 		Budgets:           budgetSummaries,
 		RecentSessions:    recentSessions,
-		Empty:             len(providerSummaries) == 0 && len(budgetSummaries) == 0 && len(recentSessions) == 0 && rollup.TotalSpendUSD == 0,
+		Empty:             len(providerSummaries) == 0 && len(budgetSummaries) == 0 && len(recentSessions) == 0 && variableSpendUSD+rollup.SubscriptionSpendUSD == 0,
 	}, nil
 }
 
@@ -162,6 +167,89 @@ type providerSummaryAccumulator struct {
 	subscriptionSpendUSD float64
 	usageEntryCount      int
 	sessionIDs           map[string]struct{}
+}
+
+func filterOpenRouterBilledLocalOverlaps(entries []domain.UsageEntry) []domain.UsageEntry {
+	if len(entries) == 0 {
+		return nil
+	}
+
+	openRouterActivityKeys := map[string]struct{}{}
+	for _, entry := range entries {
+		if entry.Source != domain.UsageSourceOpenRouter || entry.BillingMode != domain.BillingModeOpenRouter {
+			continue
+		}
+		for _, key := range openRouterOverlapKeys(entry) {
+			openRouterActivityKeys[key] = struct{}{}
+		}
+	}
+	if len(openRouterActivityKeys) == 0 {
+		return append([]domain.UsageEntry(nil), entries...)
+	}
+
+	filtered := make([]domain.UsageEntry, 0, len(entries))
+	for _, entry := range entries {
+		if isLocalOpenRouterBilledSpendOverlap(entry, openRouterActivityKeys) {
+			// OpenRouter /activity is the cost source of truth; only positive-cost local mirrors are excluded, while token-only mirrors remain aggregated.
+			continue
+		}
+		filtered = append(filtered, entry)
+	}
+
+	return filtered
+}
+
+func isLocalOpenRouterBilledSpendOverlap(entry domain.UsageEntry, openRouterActivityKeys map[string]struct{}) bool {
+	if entry.Source == domain.UsageSourceOpenRouter || entry.BillingMode != domain.BillingModeOpenRouter || entry.CostBreakdown.TotalUSD == 0 {
+		return false
+	}
+	for _, key := range openRouterOverlapKeys(entry) {
+		if _, ok := openRouterActivityKeys[key]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+func openRouterOverlapKeys(entry domain.UsageEntry) []string {
+	externalID := strings.ToLower(strings.TrimSpace(entry.ExternalID))
+	if externalID == "" {
+		return nil
+	}
+
+	modelIDs := openRouterOverlapModelIDs(entry)
+	if len(modelIDs) == 0 {
+		return nil
+	}
+
+	date := entry.OccurredAt.UTC().Format("2006-01-02")
+	keys := make([]string, 0, len(modelIDs))
+	for _, modelID := range modelIDs {
+		keys = append(keys, strings.Join([]string{date, modelID, externalID}, "|"))
+	}
+	return keys
+}
+
+func openRouterOverlapModelIDs(entry domain.UsageEntry) []string {
+	if entry.PricingRef == nil {
+		return nil
+	}
+
+	seen := map[string]struct{}{}
+	values := []string{entry.PricingRef.ModelID, entry.PricingRef.PricingLookupKey}
+	modelIDs := make([]string, 0, len(values))
+	for _, value := range values {
+		modelID := strings.ToLower(strings.TrimSpace(value))
+		if modelID == "" {
+			continue
+		}
+		if _, ok := seen[modelID]; ok {
+			continue
+		}
+		seen[modelID] = struct{}{}
+		modelIDs = append(modelIDs, modelID)
+	}
+	return modelIDs
 }
 
 func buildDashboardProviderSummaries(entries []domain.UsageEntry, fees []domain.SubscriptionFee, sessions []domain.SessionSummary) []DashboardProviderSummary {
@@ -277,10 +365,11 @@ func filterDashboardBudgetInputs(budget domain.MonthlyBudget, usageEntries []dom
 	return filteredEntries, filteredFees
 }
 
-func buildDashboardRecentSessions(sessions []domain.SessionSummary, limit int) []DashboardRecentSession {
+func buildDashboardRecentSessions(sessions []domain.SessionSummary, entries []domain.UsageEntry, limit int) []DashboardRecentSession {
 	if limit <= 0 {
 		limit = defaultDashboardRecentSessionLimit
 	}
+	sessionTypes := dashboardSessionTypesBySessionID(entries)
 
 	sorted := make([]domain.SessionSummary, len(sessions))
 	copy(sorted, sessions)
@@ -312,6 +401,7 @@ func buildDashboardRecentSessions(sessions []domain.SessionSummary, limit int) [
 		}
 		results = append(results, DashboardRecentSession{
 			SessionID:      session.SessionID,
+			SessionType:    sessionTypes[session.SessionID],
 			Provider:       session.Provider,
 			BillingMode:    session.BillingMode,
 			ProjectName:    session.ProjectName,
@@ -326,4 +416,23 @@ func buildDashboardRecentSessions(sessions []domain.SessionSummary, limit int) [
 	}
 
 	return results
+}
+
+func dashboardSessionTypesBySessionID(entries []domain.UsageEntry) map[string]string {
+	sessionTypes := make(map[string]string)
+	for _, entry := range entries {
+		sessionID := strings.TrimSpace(entry.SessionID)
+		if sessionID == "" {
+			continue
+		}
+		sessionType := strings.TrimSpace(entry.Metadata["claude_session_type"])
+		if sessionType == "" {
+			continue
+		}
+		if sessionTypes[sessionID] == "acp" {
+			continue
+		}
+		sessionTypes[sessionID] = sessionType
+	}
+	return sessionTypes
 }
