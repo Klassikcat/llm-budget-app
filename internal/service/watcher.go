@@ -436,6 +436,52 @@ func NewOpenCodeWatchTarget(root string, parser ports.SessionParser) WatchTarget
 	}
 }
 
+func NewOpenClawWatchTarget(root string, parser ports.SessionParser) WatchTarget {
+	return WatchTarget{
+		ID:       parser.ParserName(),
+		RootPath: root,
+		Parser:   parser,
+		ReadMode: WatchReadModeWholeFile,
+		DiscoverPaths: func(root string) ([]string, error) {
+			info, err := os.Stat(root)
+			if err != nil {
+				return nil, err
+			}
+			if !info.IsDir() {
+				if isOpenClawWatchFile(root) {
+					return []string{root}, nil
+				}
+				return nil, nil
+			}
+
+			paths := make([]string, 0)
+			err = filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
+				if err != nil {
+					return err
+				}
+				if entry.IsDir() {
+					return nil
+				}
+				if isOpenClawWatchFile(path) {
+					paths = append(paths, path)
+				}
+				return nil
+			})
+			return paths, err
+		},
+		MatchesPath: isOpenClawWatchFile,
+	}
+}
+
+func isOpenClawWatchFile(path string) bool {
+	switch strings.ToLower(filepath.Ext(path)) {
+	case ".json", ".jsonl":
+		return true
+	default:
+		return false
+	}
+}
+
 func checkpointSourceID(targetID, sourcePath string) string {
 	return strings.TrimSpace(targetID) + ":" + filepath.Clean(sourcePath)
 }
