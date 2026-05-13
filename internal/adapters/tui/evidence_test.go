@@ -2,9 +2,12 @@ package tui
 
 import (
 	"context"
+	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -16,6 +19,99 @@ import (
 	"llm-budget-tracker/internal/ports"
 	"llm-budget-tracker/internal/service"
 )
+
+const task15ExpectedVariableSpend = 0.1947
+
+func TestTask15FullDashboardIntegration(t *testing.T) {
+	store, period := seedTask15Store(t)
+	defer store.Close()
+
+	dashboardSnapshot, graphSnapshot := queryTask15Snapshots(t, store, period)
+	assertTask15DashboardSnapshot(t, dashboardSnapshot)
+	assertTask15GraphSnapshot(t, graphSnapshot)
+
+	dashboardView := renderSnapshotForEvidence(dashboardSnapshot, period)
+	for _, needle := range []string{"openrouter", "openclaw", "claude-code/acp", "$0.19", "$0.01", "$0.05", "$0.08", "anthropic/claude-3.5-sonnet", "gpt-4.1-openclaw"} {
+		if !strings.Contains(dashboardView, needle) {
+			t.Fatalf("dashboard view missing %q\n%s", needle, dashboardView)
+		}
+	}
+
+	graphViews := renderTask15GraphViews(graphSnapshot, period)
+	for _, needle := range []string{"claude-sonnet-4-standard", "claude-opus-4-acp", "anthropic/claude-3.5-sonnet", "gpt-4.1-openclaw", "opencode/qwen3-coder", "tokens", "$0.08", "$0.05", "$0.01"} {
+		if !strings.Contains(graphViews, needle) {
+			t.Fatalf("graph views missing %q\n%s", needle, graphViews)
+		}
+	}
+}
+
+func TestWriteTask15FullDashboardEvidence(t *testing.T) {
+	path := os.Getenv("TASK15_FULL_DASHBOARD_EVIDENCE")
+	if path == "" {
+		t.Skip("TASK15_FULL_DASHBOARD_EVIDENCE not set")
+	}
+
+	store, period := seedTask15Store(t)
+	defer store.Close()
+	dashboardSnapshot, graphSnapshot := queryTask15Snapshots(t, store, period)
+	content := strings.Join([]string{
+		"Task 15 full dashboard integration evidence",
+		fmt.Sprintf("monthly_total=%.4f", dashboardSnapshot.Totals.TotalSpendUSD),
+		"",
+		renderSnapshotForEvidence(dashboardSnapshot, period),
+		"",
+		"Graph views",
+		renderTask15GraphViews(graphSnapshot, period),
+	}, "\n")
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("WriteFile(%q) error = %v", path, err)
+	}
+}
+
+func TestTask15EmptyTempDBRendersSafely(t *testing.T) {
+	store, period := emptyTask15Store(t)
+	defer store.Close()
+
+	dashboardSnapshot, graphSnapshot := queryTask15Snapshots(t, store, period)
+	if !dashboardSnapshot.Empty {
+		t.Fatalf("snapshot.Empty = false, want true: %#v", dashboardSnapshot)
+	}
+	if len(graphSnapshot.ModelTokenUsages) != 0 || len(graphSnapshot.ModelCosts) != 0 || len(graphSnapshot.ModelTokenBreakdowns) != 0 {
+		t.Fatalf("graph snapshot should be empty: %#v", graphSnapshot)
+	}
+
+	dashboardView := renderSnapshotForEvidence(dashboardSnapshot, period)
+	if !strings.Contains(dashboardView, "No spend, budgets, or sessions are available") {
+		t.Fatalf("dashboard empty view missing empty state\n%s", dashboardView)
+	}
+	graphViews := renderTask15GraphViews(graphSnapshot, period)
+	if !strings.Contains(graphViews, "No model token activity") || !strings.Contains(graphViews, "No model cost activity") {
+		t.Fatalf("graph empty views missing safe empty messages\n%s", graphViews)
+	}
+}
+
+func TestWriteTask15EmptyStateEvidence(t *testing.T) {
+	path := os.Getenv("TASK15_EMPTY_STATE_EVIDENCE")
+	if path == "" {
+		t.Skip("TASK15_EMPTY_STATE_EVIDENCE not set")
+	}
+
+	store, period := emptyTask15Store(t)
+	defer store.Close()
+	dashboardSnapshot, graphSnapshot := queryTask15Snapshots(t, store, period)
+	content := strings.Join([]string{
+		"Task 15 empty temp DB evidence",
+		fmt.Sprintf("empty=%t", dashboardSnapshot.Empty),
+		"",
+		renderSnapshotForEvidence(dashboardSnapshot, period),
+		"",
+		"Graph empty views",
+		renderTask15GraphViews(graphSnapshot, period),
+	}, "\n")
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("WriteFile(%q) error = %v", path, err)
+	}
+}
 
 func TestSeedTask21FixtureDB(t *testing.T) {
 	path := os.Getenv("TASK21_SEED_DB")
@@ -304,6 +400,241 @@ func seedDashboardFixture(t *testing.T, store *sqlite.Store, period domain.Month
 	if err := store.UpsertForecastSnapshots(context.Background(), forecasts); err != nil {
 		t.Fatalf("UpsertForecastSnapshots() error = %v", err)
 	}
+}
+
+func seedTask15Store(t *testing.T) (*sqlite.Store, domain.MonthlyPeriod) {
+	t.Helper()
+	store, err := sqlite.Bootstrap(context.Background(), sqlite.Options{Path: filepath.Join(t.TempDir(), "task15.sqlite3")})
+	if err != nil {
+		t.Fatalf("sqlite.Bootstrap() error = %v", err)
+	}
+	period, err := domain.NewMonthlyPeriod(time.Date(2026, 5, 13, 12, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("NewMonthlyPeriod() error = %v", err)
+	}
+	seedTask15Usage(t, store, period)
+	return store, period
+}
+
+func emptyTask15Store(t *testing.T) (*sqlite.Store, domain.MonthlyPeriod) {
+	t.Helper()
+	store, err := sqlite.Bootstrap(context.Background(), sqlite.Options{Path: filepath.Join(t.TempDir(), "task15-empty.sqlite3")})
+	if err != nil {
+		t.Fatalf("sqlite.Bootstrap() error = %v", err)
+	}
+	period, err := domain.NewMonthlyPeriod(time.Date(2026, 5, 13, 12, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("NewMonthlyPeriod() error = %v", err)
+	}
+	return store, period
+}
+
+func seedTask15Usage(t *testing.T, store *sqlite.Store, period domain.MonthlyPeriod) {
+	t.Helper()
+	fixtures := []struct {
+		entryID     string
+		sessionID   string
+		source      domain.UsageSourceKind
+		provider    domain.ProviderName
+		billingMode domain.BillingMode
+		occurredAt  time.Time
+		startedAt   time.Time
+		projectName string
+		agentName   string
+		modelID     string
+		input       int64
+		output      int64
+		cacheRead   int64
+		cacheWrite  int64
+		cost        float64
+		metadata    map[string]string
+	}{
+		{
+			entryID: "task15-claude-standard", sessionID: "task15-session-claude-standard", source: domain.UsageSourceCLISession,
+			provider: domain.ProviderClaude, billingMode: domain.BillingModeUnknown, occurredAt: period.StartAt.Add(2*24*time.Hour + 10*time.Hour), startedAt: period.StartAt.Add(2*24*time.Hour + 9*time.Hour + 40*time.Minute),
+			projectName: "task15-claude-standard", agentName: "claude-code", modelID: "claude-sonnet-4-standard", input: 2100, output: 700, cacheRead: 300, cacheWrite: 100, cost: 0.0345,
+			metadata: map[string]string{"claude_session_type": "standard", "project_hash": "task15-claude-standard"},
+		},
+		{
+			entryID: "task15-claude-acp", sessionID: "task15-session-claude-acp", source: domain.UsageSourceCLISession,
+			provider: domain.ProviderClaude, billingMode: domain.BillingModeUnknown, occurredAt: period.StartAt.Add(3*24*time.Hour + 11*time.Hour), startedAt: period.StartAt.Add(3*24*time.Hour + 10*time.Hour + 20*time.Minute),
+			projectName: "task15-claude-acp", agentName: "claude-code", modelID: "claude-opus-4-acp", input: 3200, output: 900, cacheRead: 500, cacheWrite: 200, cost: 0.0789,
+			metadata: map[string]string{"claude_session_type": "acp", "project_hash": "task15-claude-acp"},
+		},
+		{
+			entryID: "task15-openrouter", sessionID: "task15-session-openrouter", source: domain.UsageSourceOpenRouter,
+			provider: domain.ProviderOpenRouter, billingMode: domain.BillingModeOpenRouter, occurredAt: period.StartAt.Add(4*24*time.Hour + 12*time.Hour), startedAt: period.StartAt.Add(4*24*time.Hour + 11*time.Hour + 35*time.Minute),
+			projectName: "task15-openrouter", agentName: "openrouter", modelID: "anthropic/claude-3.5-sonnet", input: 1200, output: 260, cacheRead: 40, cacheWrite: 0, cost: 0.0123,
+			metadata: map[string]string{"project_hash": "task15-openrouter"},
+		},
+		{
+			entryID: "task15-openclaw", sessionID: "task15-session-openclaw", source: domain.UsageSourceCLISession,
+			provider: domain.ProviderOpenAI, billingMode: domain.BillingModeBYOK, occurredAt: period.StartAt.Add(5*24*time.Hour + 13*time.Hour), startedAt: period.StartAt.Add(5*24*time.Hour + 12*time.Hour + 25*time.Minute),
+			projectName: "task15-openclaw", agentName: "openclaw", modelID: "gpt-4.1-openclaw", input: 1500, output: 500, cacheRead: 90, cacheWrite: 10, cost: 0.0456,
+			metadata: map[string]string{"openclaw_record_shape": "jsonl_usage", "project_hash": "task15-openclaw"},
+		},
+		{
+			entryID: "task15-opencode", sessionID: "task15-session-opencode", source: domain.UsageSourceCLISession,
+			provider: domain.ProviderOpenCode, billingMode: domain.BillingModeBYOK, occurredAt: period.StartAt.Add(6*24*time.Hour + 14*time.Hour), startedAt: period.StartAt.Add(6*24*time.Hour + 13*time.Hour + 45*time.Minute),
+			projectName: "task15-opencode", agentName: "opencode", modelID: "opencode/qwen3-coder", input: 1800, output: 450, cacheRead: 120, cacheWrite: 30, cost: 0.0234,
+			metadata: map[string]string{"project_hash": "task15-opencode"},
+		},
+	}
+
+	sessions := make([]domain.SessionSummary, 0, len(fixtures))
+	entries := make([]domain.UsageEntry, 0, len(fixtures))
+	for _, fixture := range fixtures {
+		ref, err := domain.NewModelPricingRef(fixture.provider, fixture.modelID, fixture.modelID)
+		if err != nil {
+			t.Fatalf("NewModelPricingRef(%q) error = %v", fixture.modelID, err)
+		}
+		tokens, err := domain.NewTokenUsage(fixture.input, fixture.output, fixture.cacheRead, fixture.cacheWrite)
+		if err != nil {
+			t.Fatalf("NewTokenUsage(%q) error = %v", fixture.entryID, err)
+		}
+		costs, err := domain.NewCostBreakdown(fixture.cost, 0, 0, 0, 0, 0)
+		if err != nil {
+			t.Fatalf("NewCostBreakdown(%q) error = %v", fixture.entryID, err)
+		}
+		sessions = append(sessions, mustSessionSummary(t, domain.SessionSummary{
+			SessionID:     fixture.sessionID,
+			Source:        fixture.source,
+			Provider:      fixture.provider,
+			BillingMode:   fixture.billingMode,
+			StartedAt:     fixture.startedAt,
+			EndedAt:       fixture.occurredAt,
+			ProjectName:   fixture.projectName,
+			AgentName:     fixture.agentName,
+			PricingRef:    &ref,
+			Tokens:        tokens,
+			CostBreakdown: costs,
+		}))
+		entries = append(entries, mustUsageEntry(t, domain.UsageEntry{
+			EntryID:       fixture.entryID,
+			Source:        fixture.source,
+			Provider:      fixture.provider,
+			BillingMode:   fixture.billingMode,
+			OccurredAt:    fixture.occurredAt,
+			SessionID:     fixture.sessionID,
+			ProjectName:   fixture.projectName,
+			AgentName:     fixture.agentName,
+			Metadata:      fixture.metadata,
+			PricingRef:    &ref,
+			Tokens:        tokens,
+			CostBreakdown: costs,
+		}))
+	}
+	if err := store.UpsertSessions(context.Background(), sessions); err != nil {
+		t.Fatalf("UpsertSessions() error = %v", err)
+	}
+	if err := store.UpsertUsageEntries(context.Background(), entries); err != nil {
+		t.Fatalf("UpsertUsageEntries() error = %v", err)
+	}
+}
+
+func queryTask15Snapshots(t *testing.T, store *sqlite.Store, period domain.MonthlyPeriod) (service.DashboardSnapshot, service.GraphSnapshot) {
+	t.Helper()
+	dashboardQuery := service.NewDashboardQueryService(store, store, store, store)
+	dashboardSnapshot, err := dashboardQuery.QueryDashboard(context.Background(), service.DashboardQuery{Period: period, RecentSessionLimit: 8})
+	if err != nil {
+		t.Fatalf("QueryDashboard() error = %v", err)
+	}
+	graphSnapshot, err := service.NewGraphQueryService(store).QueryGraphs(context.Background(), service.GraphQuery{Period: period})
+	if err != nil {
+		t.Fatalf("QueryGraphs() error = %v", err)
+	}
+	return dashboardSnapshot, graphSnapshot
+}
+
+func assertTask15DashboardSnapshot(t *testing.T, snapshot service.DashboardSnapshot) {
+	t.Helper()
+	if !nearlyEqual(snapshot.Totals.TotalSpendUSD, task15ExpectedVariableSpend) {
+		t.Fatalf("TotalSpendUSD = %.4f, want %.4f", snapshot.Totals.TotalSpendUSD, task15ExpectedVariableSpend)
+	}
+	if !nearlyEqual(snapshot.Totals.VariableSpendUSD, task15ExpectedVariableSpend) {
+		t.Fatalf("VariableSpendUSD = %.4f, want %.4f", snapshot.Totals.VariableSpendUSD, task15ExpectedVariableSpend)
+	}
+	if snapshot.Empty {
+		t.Fatal("snapshot.Empty = true, want false")
+	}
+	providers := map[domain.ProviderName]service.DashboardProviderSummary{}
+	for _, summary := range snapshot.ProviderSummaries {
+		providers[summary.Provider] = summary
+	}
+	for provider, want := range map[domain.ProviderName]float64{
+		domain.ProviderClaude:     0.1134,
+		domain.ProviderOpenRouter: 0.0123,
+		domain.ProviderOpenAI:     0.0456,
+		domain.ProviderOpenCode:   0.0234,
+	} {
+		if got := providers[provider].TotalSpendUSD; !nearlyEqual(got, want) {
+			t.Fatalf("provider %s TotalSpendUSD = %.4f, want %.4f", provider, got, want)
+		}
+	}
+	if len(snapshot.RecentSessions) != 5 {
+		t.Fatalf("len(RecentSessions) = %d, want 5", len(snapshot.RecentSessions))
+	}
+}
+
+func assertTask15GraphSnapshot(t *testing.T, snapshot service.GraphSnapshot) {
+	t.Helper()
+	if len(snapshot.ModelTokenUsages) != 5 {
+		t.Fatalf("len(ModelTokenUsages) = %d, want 5", len(snapshot.ModelTokenUsages))
+	}
+	if len(snapshot.ModelCosts) != 5 {
+		t.Fatalf("len(ModelCosts) = %d, want 5", len(snapshot.ModelCosts))
+	}
+	costs := map[string]float64{}
+	tokens := map[string]int64{}
+	for _, cost := range snapshot.ModelCosts {
+		costs[cost.ModelName] = cost.TotalCostUSD
+	}
+	for _, usage := range snapshot.ModelTokenUsages {
+		tokens[usage.ModelName] = usage.TotalTokens
+	}
+	for modelName, wantCost := range map[string]float64{
+		"anthropic/claude-3.5-sonnet": 0.0123,
+		"gpt-4.1-openclaw":            0.0456,
+		"claude-opus-4-acp":           0.0789,
+	} {
+		if got := costs[modelName]; !nearlyEqual(got, wantCost) {
+			t.Fatalf("graph cost for %s = %.4f, want %.4f", modelName, got, wantCost)
+		}
+		if tokens[modelName] == 0 {
+			t.Fatalf("graph tokens for %s = 0, want non-zero", modelName)
+		}
+	}
+}
+
+func renderTask15GraphViews(snapshot service.GraphSnapshot, period domain.MonthlyPeriod) string {
+	m := newModel(modelDependencies{loader: staticLoader{data: service.DashboardSnapshot{Period: period}}, graphs: staticGraphLoader{data: snapshot}}, period)
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 140, Height: 36})
+	m = updated.(model)
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'g'}})
+	m = updated.(model)
+	updated, _ = m.Update(graphLoadedMsg{data: snapshot})
+	m = updated.(model)
+
+	views := make([]string, 0, 4)
+	for _, tab := range []graphTab{graphTabModelTokenUsage, graphTabModelCost, graphTabDailyTokenTrend, graphTabModelTokenBreakdown} {
+		m.graphTab = tab
+		m.syncViewport()
+		views = append(views, graphTabLabel(tab), m.View())
+	}
+	return strings.Join(views, "\n\n")
+}
+
+type staticGraphLoader struct {
+	data service.GraphSnapshot
+	err  error
+}
+
+func (s staticGraphLoader) QueryGraphs(context.Context, service.GraphQuery) (service.GraphSnapshot, error) {
+	return s.data, s.err
+}
+
+func nearlyEqual(got, want float64) bool {
+	return math.Abs(got-want) < 0.000001
 }
 
 func renderSnapshotForEvidence(snapshot service.DashboardSnapshot, period domain.MonthlyPeriod) string {

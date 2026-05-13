@@ -1,0 +1,2 @@
+{"timestamp":"2026-04-18T09:00:00Z","session_id":"oc_sess_warn","request_id":"oc_req_good","provider":"Google","model":"Gemini-2.0-Flash","usage":{"input_tokens":80,"output_tokens":20},"cost":{"total":0.003},"prompt":"SENSITIVE_TRANSCRIPT_SENTINEL good prompt"}
+{"timestamp":"2026-04-18T09:01:00Z","session_id":"oc_sess_warn","request_id":"oc_req_bad","provider":"OpenAI","model":"GPT-5","usage":{"input_tokens":10,"output_tokens":5},"prompt":"SENSITIVE_TRANSCRIPT_SENTINEL malformed"

@@ -105,7 +105,7 @@ func (s *GraphQueryService) QueryGraphs(ctx context.Context, query GraphQuery) (
 		return GraphSnapshot{}, err
 	}
 
-	return buildGraphSnapshot(period, entries), nil
+	return buildGraphSnapshot(period, filterOpenRouterBilledLocalOverlaps(entries)), nil
 }
 
 type graphModelAccumulator struct {

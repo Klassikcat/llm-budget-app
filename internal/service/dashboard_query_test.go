@@ -31,7 +31,7 @@ func TestDashboardQueryServiceLoadAggregatesSummaries(t *testing.T) {
 		EntryID:       "usage-1",
 		Source:        domain.UsageSourceCLISession,
 		Provider:      domain.ProviderOpenAI,
-		BillingMode:   domain.BillingModeBYOK,
+		BillingMode:   domain.BillingModeOpenRouter,
 		OccurredAt:    time.Date(2026, 4, 17, 12, 30, 0, 0, time.UTC),
 		SessionID:     "session-1",
 		ProjectName:   "alpha",
@@ -49,7 +49,7 @@ func TestDashboardQueryServiceLoadAggregatesSummaries(t *testing.T) {
 		SessionID:     "session-1",
 		Source:        domain.UsageSourceCLISession,
 		Provider:      domain.ProviderOpenAI,
-		BillingMode:   domain.BillingModeBYOK,
+		BillingMode:   domain.BillingModeOpenRouter,
 		StartedAt:     time.Date(2026, 4, 17, 12, 0, 0, 0, time.UTC),
 		EndedAt:       time.Date(2026, 4, 17, 12, 45, 0, 0, time.UTC),
 		ProjectName:   "alpha",
@@ -134,6 +134,78 @@ func TestDashboardQueryServiceLoadAggregatesSummaries(t *testing.T) {
 	}
 	if len(data.RecentSessions) != 1 || data.RecentSessions[0].SessionID != "session-1" {
 		t.Fatalf("RecentSessions = %+v, want session-1", data.RecentSessions)
+	}
+}
+
+func TestDashboardQueryServiceRecentSessionsExposeACPSessionType(t *testing.T) {
+	period, err := domain.NewMonthlyPeriod(time.Date(2026, 4, 18, 12, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("NewMonthlyPeriod() error = %v", err)
+	}
+	ref, err := domain.NewModelPricingRef(domain.ProviderAnthropic, "claude-sonnet-4-0", "anthropic/claude-sonnet-4-0")
+	if err != nil {
+		t.Fatalf("NewModelPricingRef() error = %v", err)
+	}
+	tokens, err := domain.NewTokenUsage(1000, 250, 100, 50)
+	if err != nil {
+		t.Fatalf("NewTokenUsage() error = %v", err)
+	}
+	costs, err := domain.NewCostBreakdown(0.003, 0.00375, 0.00003, 0.0001875, 0, 0)
+	if err != nil {
+		t.Fatalf("NewCostBreakdown() error = %v", err)
+	}
+	entry, err := domain.NewUsageEntry(domain.UsageEntry{
+		EntryID:       "usage-acp-1",
+		Source:        domain.UsageSourceCLISession,
+		Provider:      domain.ProviderAnthropic,
+		BillingMode:   domain.BillingModeSubscription,
+		OccurredAt:    time.Date(2026, 4, 18, 12, 10, 0, 0, time.UTC),
+		SessionID:     "session-acp-1",
+		ProjectName:   "alpha",
+		AgentName:     "claude",
+		Metadata:      map[string]string{"claude_session_type": "acp"},
+		PricingRef:    &ref,
+		Tokens:        tokens,
+		CostBreakdown: costs,
+	})
+	if err != nil {
+		t.Fatalf("NewUsageEntry() error = %v", err)
+	}
+	session, err := domain.NewSessionSummary(domain.SessionSummary{
+		SessionID:     "session-acp-1",
+		Source:        domain.UsageSourceCLISession,
+		Provider:      domain.ProviderAnthropic,
+		BillingMode:   domain.BillingModeSubscription,
+		StartedAt:     time.Date(2026, 4, 18, 12, 0, 0, 0, time.UTC),
+		EndedAt:       time.Date(2026, 4, 18, 12, 30, 0, 0, time.UTC),
+		ProjectName:   "alpha",
+		AgentName:     "claude",
+		PricingRef:    &ref,
+		Tokens:        tokens,
+		CostBreakdown: costs,
+	})
+	if err != nil {
+		t.Fatalf("NewSessionSummary() error = %v", err)
+	}
+	svc := NewDashboardQueryService(
+		stubUsageRepo{entries: []domain.UsageEntry{entry}},
+		stubSessionRepo{sessions: []domain.SessionSummary{session}},
+		stubBudgetRepo{},
+		stubSubscriptionRepo{},
+	)
+
+	data, err := svc.QueryDashboard(context.Background(), DashboardQuery{Period: period, RecentSessionLimit: 5})
+	if err != nil {
+		t.Fatalf("QueryDashboard() error = %v", err)
+	}
+	if len(data.RecentSessions) != 1 {
+		t.Fatalf("len(RecentSessions) = %d, want 1", len(data.RecentSessions))
+	}
+	if got := data.RecentSessions[0].SessionType; got != "acp" {
+		t.Fatalf("RecentSessions[0].SessionType = %q, want acp", got)
+	}
+	if got := data.ProviderSummaries[0].TotalSpendUSD; got != costs.TotalUSD {
+		t.Fatalf("ProviderSummaries[0].TotalSpendUSD = %v, want %v", got, costs.TotalUSD)
 	}
 }
 
@@ -265,4 +337,197 @@ func (s stubBudgetRepo) GetBudgetState(context.Context, string, domain.MonthlyPe
 
 func ptrTime(value time.Time) *time.Time {
 	return &value
+}
+
+func TestDashboardQueryServiceLoadOpenRouter(t *testing.T) {
+	period, err := domain.NewMonthlyPeriod(time.Date(2026, 4, 17, 12, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("NewMonthlyPeriod() error = %v", err)
+	}
+
+	usageRef, err := domain.NewModelPricingRef(domain.ProviderOpenRouter, "anthropic/claude-3.5-sonnet", "anthropic/claude-3.5-sonnet")
+	if err != nil {
+		t.Fatalf("NewModelPricingRef() error = %v", err)
+	}
+	tokens, err := domain.NewTokenUsage(1000, 200, 0, 0)
+	if err != nil {
+		t.Fatalf("NewTokenUsage() error = %v", err)
+	}
+	costs, err := domain.NewCostBreakdown(0.0123, 0.0023, 0, 0, 0, 0)
+	if err != nil {
+		t.Fatalf("NewCostBreakdown() error = %v", err)
+	}
+	entry, err := domain.NewUsageEntry(domain.UsageEntry{
+		EntryID:       "usage-or-1",
+		Source:        domain.UsageSourceOpenRouter,
+		Provider:      domain.ProviderOpenRouter,
+		BillingMode:   domain.BillingModeOpenRouter,
+		OccurredAt:    time.Date(2026, 4, 17, 12, 30, 0, 0, time.UTC),
+		SessionID:     "session-or-1",
+		ProjectName:   "beta",
+		AgentName:     "cline",
+		Metadata:      map[string]string{"project_hash": "project-beta"},
+		PricingRef:    &usageRef,
+		Tokens:        tokens,
+		CostBreakdown: costs,
+	})
+	if err != nil {
+		t.Fatalf("NewUsageEntry() error = %v", err)
+	}
+
+	session, err := domain.NewSessionSummary(domain.SessionSummary{
+		SessionID:     "session-or-1",
+		Source:        domain.UsageSourceOpenRouter,
+		Provider:      domain.ProviderOpenRouter,
+		BillingMode:   domain.BillingModeOpenRouter,
+		ProjectName:   "beta",
+		AgentName:     "cline",
+		StartedAt:     time.Date(2026, 4, 17, 12, 0, 0, 0, time.UTC),
+		EndedAt:       time.Date(2026, 4, 17, 12, 30, 0, 0, time.UTC),
+		Tokens:        tokens,
+		CostBreakdown: costs,
+	})
+	if err != nil {
+		t.Fatalf("NewSessionSummary() error = %v", err)
+	}
+
+	svc := NewDashboardQueryService(
+		stubUsageRepo{entries: []domain.UsageEntry{entry}},
+		stubSessionRepo{sessions: []domain.SessionSummary{session}},
+		stubBudgetRepo{},
+		stubSubscriptionRepo{},
+	)
+
+	snapshot, err := svc.QueryDashboard(context.Background(), DashboardQuery{Period: period, RecentSessionLimit: 5})
+	if err != nil {
+		t.Fatalf("QueryDashboard() error = %v", err)
+	}
+
+	if snapshot.Totals.TotalSpendUSD != 0.0146 {
+		t.Errorf("expected total spend 0.0146, got %f", snapshot.Totals.TotalSpendUSD)
+	}
+
+	if len(snapshot.ProviderSummaries) != 1 {
+		t.Fatalf("expected 1 provider summary, got %d", len(snapshot.ProviderSummaries))
+	}
+	summary := snapshot.ProviderSummaries[0]
+	if summary.Provider != domain.ProviderOpenRouter {
+		t.Errorf("expected provider %s, got %s", domain.ProviderOpenRouter, summary.Provider)
+	}
+	if summary.TotalSpendUSD != 0.0146 {
+		t.Errorf("expected provider spend 0.0146, got %f", summary.TotalSpendUSD)
+	}
+	if summary.UsageEntryCount != 1 {
+		t.Errorf("expected 1 usage entry, got %d", summary.UsageEntryCount)
+	}
+	if summary.SessionCount != 1 {
+		t.Errorf("expected 1 session, got %d", summary.SessionCount)
+	}
+
+	if len(snapshot.RecentSessions) != 1 {
+		t.Fatalf("expected 1 recent session, got %d", len(snapshot.RecentSessions))
+	}
+	recent := snapshot.RecentSessions[0]
+	if recent.Provider != domain.ProviderOpenRouter {
+		t.Errorf("expected recent session provider %s, got %s", domain.ProviderOpenRouter, recent.Provider)
+	}
+	if recent.TotalCostUSD != 0.0146 {
+		t.Errorf("expected recent session cost 0.0146, got %f", recent.TotalCostUSD)
+	}
+}
+
+func TestDashboardQueryServiceOpenRouterActivitySourceOfTruthExcludesPaidOverlapAndPreservesTokenOnlyLocalOverlap(t *testing.T) {
+	period, err := domain.NewMonthlyPeriod(time.Date(2026, 4, 17, 12, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("NewMonthlyPeriod() error = %v", err)
+	}
+
+	entries := []domain.UsageEntry{
+		mustTask13DashboardOpenRouterEntry(t, "activity", domain.UsageSourceOpenRouter, domain.BillingModeOpenRouter, "endpoint-shared", 10),
+		mustTask13DashboardOpenRouterEntry(t, "local-openrouter-overlap", domain.UsageSourceCLISession, domain.BillingModeOpenRouter, "endpoint-shared", 99),
+		mustTask13DashboardOpenRouterEntry(t, "local-openrouter-token-only-overlap", domain.UsageSourceCLISession, domain.BillingModeOpenRouter, "endpoint-shared", 0),
+		mustTask13DashboardOpenRouterEntry(t, "local-byok-boundary", domain.UsageSourceCLISession, domain.BillingModeBYOK, "endpoint-shared", 2),
+		mustTask13DashboardOpenRouterEntry(t, "local-subscription-boundary", domain.UsageSourceCLISession, domain.BillingModeSubscription, "endpoint-shared", 3),
+		mustTask13DashboardOpenRouterEntry(t, "local-direct-api-boundary", domain.UsageSourceCLISession, domain.BillingModeDirectAPI, "endpoint-shared", 4),
+		mustTask13DashboardOpenRouterEntry(t, "local-openrouter-distinct", domain.UsageSourceCLISession, domain.BillingModeOpenRouter, "endpoint-distinct", 5),
+	}
+	threshold, err := domain.NewBudgetThreshold(domain.AlertSeverityWarning, 0.8)
+	if err != nil {
+		t.Fatalf("NewBudgetThreshold() error = %v", err)
+	}
+	budget, err := domain.NewMonthlyBudget(domain.MonthlyBudget{
+		BudgetID:   "budget-openrouter-boundary",
+		Name:       "OpenRouter Boundary",
+		Period:     period,
+		LimitUSD:   100,
+		Thresholds: []domain.BudgetThreshold{threshold},
+		Currency:   "USD",
+		Provider:   domain.ProviderOpenRouter,
+	})
+	if err != nil {
+		t.Fatalf("NewMonthlyBudget() error = %v", err)
+	}
+
+	svc := NewDashboardQueryService(
+		stubUsageRepo{entries: entries},
+		stubSessionRepo{},
+		stubBudgetRepo{budgets: []domain.MonthlyBudget{budget}},
+		stubSubscriptionRepo{},
+	)
+
+	snapshot, err := svc.QueryDashboard(context.Background(), DashboardQuery{Period: period})
+	if err != nil {
+		t.Fatalf("QueryDashboard() error = %v", err)
+	}
+
+	if got, want := snapshot.Totals.VariableSpendUSD, 24.0; got != want {
+		t.Fatalf("Totals.VariableSpendUSD = %v, want %v", got, want)
+	}
+	if len(snapshot.ProviderSummaries) != 1 {
+		t.Fatalf("len(ProviderSummaries) = %d, want 1", len(snapshot.ProviderSummaries))
+	}
+	if got, want := snapshot.ProviderSummaries[0].UsageEntryCount, 6; got != want {
+		t.Fatalf("ProviderSummaries[0].UsageEntryCount = %d, want %d", got, want)
+	}
+	if got, want := snapshot.ProviderSummaries[0].TotalSpendUSD, 24.0; got != want {
+		t.Fatalf("ProviderSummaries[0].TotalSpendUSD = %v, want %v", got, want)
+	}
+	if len(snapshot.Budgets) != 1 {
+		t.Fatalf("len(Budgets) = %d, want 1", len(snapshot.Budgets))
+	}
+	if got, want := snapshot.Budgets[0].CurrentSpendUSD, 24.0; got != want {
+		t.Fatalf("Budgets[0].CurrentSpendUSD = %v, want %v", got, want)
+	}
+}
+
+func mustTask13DashboardOpenRouterEntry(t *testing.T, entryID string, source domain.UsageSourceKind, billingMode domain.BillingMode, externalID string, totalCostUSD float64) domain.UsageEntry {
+	t.Helper()
+
+	tokens, err := domain.NewTokenUsage(100, 20, 0, 0)
+	if err != nil {
+		t.Fatalf("NewTokenUsage() error = %v", err)
+	}
+	costs, err := domain.NewCostBreakdown(totalCostUSD, 0, 0, 0, 0, 0)
+	if err != nil {
+		t.Fatalf("NewCostBreakdown() error = %v", err)
+	}
+	ref, err := domain.NewModelPricingRef(domain.ProviderOpenRouter, "openai/gpt-4.1-2025-04-14", "openai/gpt-4.1")
+	if err != nil {
+		t.Fatalf("NewModelPricingRef() error = %v", err)
+	}
+	entry, err := domain.NewUsageEntry(domain.UsageEntry{
+		EntryID:       "task13-dashboard-" + entryID,
+		Source:        source,
+		Provider:      domain.ProviderOpenRouter,
+		BillingMode:   billingMode,
+		OccurredAt:    time.Date(2026, 4, 17, 12, 30, 0, 0, time.UTC),
+		ExternalID:    externalID,
+		PricingRef:    &ref,
+		Tokens:        tokens,
+		CostBreakdown: costs,
+	})
+	if err != nil {
+		t.Fatalf("NewUsageEntry() error = %v", err)
+	}
+	return entry
 }

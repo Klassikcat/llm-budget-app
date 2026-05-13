@@ -2,7 +2,9 @@ package tui
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net/http"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -10,6 +12,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"llm-budget-tracker/internal/adapters/openrouter"
 	"llm-budget-tracker/internal/adapters/sqlite"
 	"llm-budget-tracker/internal/domain"
 	"llm-budget-tracker/internal/ports"
@@ -1289,4 +1292,511 @@ func selectSubscriptionPreset(form *subscriptionFormModel, label string) {
 
 func confirmSubscriptionPreset(form *subscriptionFormModel) {
 	form.togglePresetSelection(form.presetCursor)
+}
+
+func TestModelRendersOpenRouterDashboardData(t *testing.T) {
+	period, err := domain.NewMonthlyPeriod(time.Date(2026, 4, 17, 12, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("NewMonthlyPeriod() error = %v", err)
+	}
+	loader := staticLoader{data: service.DashboardSnapshot{
+		Period: period,
+		Totals: service.DashboardTotals{
+			TotalSpendUSD:        15.50,
+			VariableSpendUSD:     15.50,
+			SubscriptionSpendUSD: 0,
+		},
+		ProviderSummaries: []service.DashboardProviderSummary{{
+			Provider:             domain.ProviderOpenRouter,
+			TotalSpendUSD:        15.50,
+			VariableSpendUSD:     15.50,
+			SubscriptionSpendUSD: 0,
+			SessionCount:         3,
+			UsageEntryCount:      10,
+		}},
+		RecentSessions: []service.DashboardRecentSession{{
+			SessionID:    "session-or-1",
+			Provider:     domain.ProviderOpenRouter,
+			AgentName:    "cline",
+			ProjectName:  "beta",
+			EndedAt:      time.Date(2026, 4, 17, 14, 30, 0, 0, time.UTC),
+			TotalCostUSD: 5.50,
+			TotalTokens:  5000,
+			BillingMode:  domain.BillingModeBYOK,
+			ModelID:      "anthropic/claude-3.5-sonnet",
+		}},
+	}}
+	m := newModel(modelDependencies{loader: loader}, period)
+
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 140, Height: 30})
+	m = updated.(model)
+	updated, _ = m.Update(dashboardLoadedMsg{data: loader.data})
+	m = updated.(model)
+
+	view := m.View()
+	for _, needle := range []string{"openrouter", "15.50", "anthropic/claude-3.5-sonnet", "cline"} {
+		if !strings.Contains(view, needle) {
+			t.Fatalf("View() missing %q\n%s", needle, view)
+		}
+	}
+}
+
+func TestModelRendersOpenRouterEmptyAndErrorState(t *testing.T) {
+	period, err := domain.NewMonthlyPeriod(time.Date(2026, 4, 17, 12, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("NewMonthlyPeriod() error = %v", err)
+	}
+
+	// Empty state
+	loader := staticLoader{data: service.DashboardSnapshot{
+		Period: period,
+		Empty:  true,
+	}}
+	m := newModel(modelDependencies{loader: loader}, period)
+
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 140, Height: 30})
+	m = updated.(model)
+	updated, _ = m.Update(dashboardLoadedMsg{data: loader.data})
+	m = updated.(model)
+
+	view := m.View()
+	if !strings.Contains(view, "No spend, budgets, or sessions are available") {
+		t.Fatalf("View() missing empty state message\n%s", view)
+	}
+
+	// Error state
+	errLoader := staticLoader{err: fmt.Errorf("openrouter sync failed: connection refused")}
+	mErr := newModel(modelDependencies{loader: errLoader}, period)
+	updated, _ = mErr.Update(tea.WindowSizeMsg{Width: 140, Height: 30})
+	mErr = updated.(model)
+	updated, _ = mErr.Update(dashboardLoadedMsg{err: errLoader.err})
+	mErr = updated.(model)
+
+	viewErr := mErr.View()
+	if !strings.Contains(viewErr, "Dashboard failed to load") {
+		t.Fatalf("View() missing error state header\n%s", viewErr)
+	}
+	if !strings.Contains(viewErr, "openrouter sync failed") {
+		t.Fatalf("View() missing error message\n%s", viewErr)
+	}
+	if strings.Contains(viewErr, "sk-or-v1-") || strings.Contains(viewErr, "Bearer") {
+		t.Fatalf("View() leaked sensitive token in error state\n%s", viewErr)
+	}
+}
+
+type fakeOpenRouterSyncer struct {
+	result service.OpenRouterActivitySyncResult
+	err    error
+	called bool
+}
+
+func (f *fakeOpenRouterSyncer) Sync(ctx context.Context, options ports.OpenRouterActivityOptions) (service.OpenRouterActivitySyncResult, error) {
+	f.called = true
+	return f.result, f.err
+}
+
+func TestModelOpenRouterManualSyncSuccess(t *testing.T) {
+	period, _ := domain.NewMonthlyPeriod(time.Date(2024, 1, 15, 0, 0, 0, 0, time.UTC))
+
+	syncer := &fakeOpenRouterSyncer{
+		result: service.OpenRouterActivitySyncResult{
+			UsageEntries: []domain.UsageEntry{{}, {}}, // 2 entries
+		},
+	}
+
+	deps := modelDependencies{
+		loader:     &staticLoader{},
+		openRouter: syncer,
+	}
+
+	m := newModel(deps, period)
+	m.width = 80
+	m.height = 24
+	m.ready = true
+
+	// Simulate 'o' key press
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("o")})
+
+	if !strings.Contains(updated.(model).statusMessage, "Syncing OpenRouter usage...") {
+		t.Errorf("expected status message to indicate syncing, got %q", updated.(model).statusMessage)
+	}
+
+	// Execute the returned command
+	msg := cmd()
+
+	// Verify syncer was called
+	if !syncer.called {
+		t.Errorf("expected openRouterSyncer to be called")
+	}
+
+	// Deliver the result message
+	updated, _ = updated.Update(msg)
+
+	if !strings.Contains(updated.(model).statusMessage, "Synced 2 OpenRouter usage entries") {
+		t.Errorf("expected status message to indicate 2 entries synced, got %q", updated.(model).statusMessage)
+	}
+}
+
+func TestModelOpenRouterManualSyncMissingKey(t *testing.T) {
+	period, _ := domain.NewMonthlyPeriod(time.Date(2024, 1, 15, 0, 0, 0, 0, time.UTC))
+
+	syncer := &fakeOpenRouterSyncer{
+		err: fmt.Errorf("provider.openrouter.api_key is configured"),
+	}
+
+	deps := modelDependencies{
+		loader:     &staticLoader{},
+		openRouter: syncer,
+	}
+
+	m := newModel(deps, period)
+	m.width = 80
+	m.height = 24
+	m.ready = true
+
+	// Simulate 'o' key press
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("o")})
+
+	// Execute the returned command
+	msg := cmd()
+
+	// Deliver the result message
+	updated, _ = updated.Update(msg)
+
+	if !strings.Contains(updated.(model).statusMessage, "OpenRouter API key not configured") {
+		t.Errorf("expected status message to indicate missing key, got %q", updated.(model).statusMessage)
+	}
+}
+
+func TestModelOpenRouterManualSyncErrorStatusMessagesAreSafe(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want string
+	}{
+		{
+			name: "missing key",
+			err:  &openrouter.WarningState{Code: openrouter.WarningCodeMissingAPIKey, Message: "missing_api_key: Authorization: Bearer sk-or-v1-missing"},
+			want: "OpenRouter API key not configured",
+		},
+		{
+			name: "invalid key",
+			err: &openrouter.WarningState{
+				Code:       openrouter.WarningCodeInvalidAPIKey,
+				StatusCode: http.StatusUnauthorized,
+				Message:    "OpenRouter sync failed because the configured API key was rejected",
+				Err:        errors.New(`{"error":{"message":"Authorization: Bearer sk-or-v1-invalid synthetic-openrouter-secret raw body"}}`),
+			},
+			want: "OpenRouter API key was rejected. Update provider.openrouter.api_key and try again.",
+		},
+		{
+			name: "forbidden",
+			err: &openrouter.WarningState{
+				Code:       openrouter.WarningCodeAccessDenied,
+				StatusCode: http.StatusForbidden,
+				Message:    "OpenRouter sync failed because the configured key does not have management API access",
+				Err:        errors.New("Authorization header denied for Bearer sk-or-v1-forbidden"),
+			},
+			want: "OpenRouter API key does not have management API access.",
+		},
+		{
+			name: "network timeout",
+			err:  fmt.Errorf("request OpenRouter /activity with Authorization: Bearer sk-or-v1-timeout synthetic-openrouter-secret: %w", context.DeadlineExceeded),
+			want: "OpenRouter sync timed out. Try again later.",
+		},
+		{
+			name: "rate limit",
+			err:  errors.New("OpenRouter request failed with status 429: raw body mentions Bearer sk-or-v1-rate"),
+			want: "OpenRouter is temporarily unavailable or rate limited. Try again later.",
+		},
+		{
+			name: "server error",
+			err:  errors.New("OpenRouter request failed with status 502: upstream body Authorization: Bearer sk-or-v1-server"),
+			want: "OpenRouter is temporarily unavailable or rate limited. Try again later.",
+		},
+		{
+			name: "malformed response",
+			err:  errors.New("decode OpenRouter /activity response: invalid character '<' looking for beginning of value; Bearer sk-or-v1-malformed"),
+			want: "OpenRouter returned an unreadable response. Try again later.",
+		},
+		{
+			name: "generic fallback",
+			err:  errors.New("unexpected OpenRouter failure Authorization: Bearer sk-or-v1-generic raw body"),
+			want: "OpenRouter sync failed. Check connection and try again.",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := newOpenRouterTestModel(t, &fakeOpenRouterSyncer{err: tt.err}, service.DashboardSnapshot{})
+			updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("o")})
+			if cmd == nil {
+				t.Fatal("expected OpenRouter sync command")
+			}
+			updated, _ = updated.Update(cmd())
+
+			got := updated.(model)
+			if got.statusMessage != tt.want {
+				t.Fatalf("statusMessage = %q, want %q", got.statusMessage, tt.want)
+			}
+			assertNoOpenRouterSecretLeak(t, got.statusMessage)
+			assertNoOpenRouterSecretLeak(t, got.View())
+		})
+	}
+}
+
+func TestModelOpenRouterManualSyncTimeoutPreservesDashboardData(t *testing.T) {
+	period, _ := domain.NewMonthlyPeriod(time.Date(2026, 4, 17, 12, 0, 0, 0, time.UTC))
+	snapshot := service.DashboardSnapshot{
+		Period: period,
+		Totals: service.DashboardTotals{TotalSpendUSD: 42.50, VariableSpendUSD: 42.50},
+		ProviderSummaries: []service.DashboardProviderSummary{{
+			Provider:         domain.ProviderOpenRouter,
+			TotalSpendUSD:    42.50,
+			VariableSpendUSD: 42.50,
+			SessionCount:     1,
+			UsageEntryCount:  1,
+		}},
+		RecentSessions: []service.DashboardRecentSession{{
+			SessionID:    "session-preserve",
+			Provider:     domain.ProviderOpenRouter,
+			AgentName:    "opencode",
+			ProjectName:  "preserved-project",
+			EndedAt:      time.Date(2026, 4, 17, 14, 30, 0, 0, time.UTC),
+			TotalCostUSD: 42.50,
+			TotalTokens:  4200,
+			BillingMode:  domain.BillingModeOpenRouter,
+			ModelID:      "openrouter/preserved-model",
+		}},
+	}
+	m := newOpenRouterTestModel(t, &fakeOpenRouterSyncer{err: fmt.Errorf("request OpenRouter /activity: %w", context.DeadlineExceeded)}, snapshot)
+
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("o")})
+	if cmd == nil {
+		t.Fatal("expected OpenRouter sync command")
+	}
+	updated, followup := updated.Update(cmd())
+	if followup != nil {
+		t.Fatal("expected failed OpenRouter sync to avoid dashboard reload")
+	}
+	got := updated.(model)
+	if got.data.Totals.TotalSpendUSD != snapshot.Totals.TotalSpendUSD || got.data.RecentSessions[0].ModelID != snapshot.RecentSessions[0].ModelID {
+		t.Fatalf("dashboard snapshot changed after sync error: %#v", got.data)
+	}
+	view := got.View()
+	for _, needle := range []string{"42.50", "openrouter/preserved-model", "opencode"} {
+		if !strings.Contains(view, needle) {
+			t.Fatalf("View() lost preserved dashboard value %q\n%s", needle, view)
+		}
+	}
+	if got.statusMessage != "OpenRouter sync timed out. Try again later." {
+		t.Fatalf("statusMessage = %q", got.statusMessage)
+	}
+	assertNoOpenRouterSecretLeak(t, got.statusMessage)
+	assertNoOpenRouterSecretLeak(t, view)
+}
+
+func newOpenRouterTestModel(t *testing.T, syncer *fakeOpenRouterSyncer, snapshot service.DashboardSnapshot) model {
+	t.Helper()
+	period := snapshot.Period
+	if period.StartAt.IsZero() {
+		var err error
+		period, err = domain.NewMonthlyPeriod(time.Date(2024, 1, 15, 0, 0, 0, 0, time.UTC))
+		if err != nil {
+			t.Fatalf("NewMonthlyPeriod() error = %v", err)
+		}
+		snapshot.Period = period
+	}
+	m := newModel(modelDependencies{loader: staticLoader{data: snapshot}, openRouter: syncer}, period)
+	m.width = 140
+	m.height = 30
+	m.ready = true
+	m.loading = false
+	m.data = snapshot
+	m.syncViewport()
+	return m
+}
+
+func assertNoOpenRouterSecretLeak(t *testing.T, text string) {
+	t.Helper()
+	for _, forbidden := range []string{"sk-or-v1-", "Bearer", "Authorization", "synthetic-openrouter-secret", "raw body"} {
+		if strings.Contains(text, forbidden) {
+			t.Fatalf("status leaked %q in %q", forbidden, text)
+		}
+	}
+}
+
+func TestRenderGraphViewOpenRouter(t *testing.T) {
+	m := &model{
+		graphTab: graphTabModelTokenUsage,
+		graphData: service.GraphSnapshot{
+			ModelTokenUsages: []service.ModelTokenUsage{{
+				ModelName:   "anthropic/claude-3.5-sonnet",
+				TotalTokens: 1200,
+			}},
+			ModelCosts: []service.ModelCost{{
+				ModelName:    "anthropic/claude-3.5-sonnet",
+				TotalCostUSD: 0.0123,
+			}},
+		},
+	}
+
+	view := renderGraphView(m, 80)
+	t.Logf("Token Usage View:\n%s", view)
+	for _, needle := range []string{"anthropic/c", "1,200 tokens"} {
+		if !strings.Contains(view, needle) {
+			t.Errorf("expected graph view to contain %q", needle)
+		}
+	}
+
+	m.graphTab = graphTabModelCost
+	view = renderGraphView(m, 80)
+	t.Logf("Cost View:\n%s", view)
+	for _, needle := range []string{"anthropic/claude-3", "0.01"} {
+		if !strings.Contains(view, needle) {
+			t.Errorf("expected graph view to contain %q", needle)
+		}
+	}
+}
+
+func TestModelRendersOpenClawAndACPDashboardData(t *testing.T) {
+	period, err := domain.NewMonthlyPeriod(time.Date(2026, 4, 17, 12, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("NewMonthlyPeriod() error = %v", err)
+	}
+	loader := staticLoader{data: service.DashboardSnapshot{
+		Period: period,
+		Totals: service.DashboardTotals{
+			TotalSpendUSD:        20.00,
+			VariableSpendUSD:     20.00,
+			SubscriptionSpendUSD: 0,
+		},
+		ProviderSummaries: []service.DashboardProviderSummary{
+			{
+				Provider:             domain.ProviderAnthropic,
+				TotalSpendUSD:        10.00,
+				VariableSpendUSD:     10.00,
+				SubscriptionSpendUSD: 0,
+				SessionCount:         1,
+				UsageEntryCount:      5,
+			},
+			{
+				Provider:             domain.ProviderOpenAI,
+				TotalSpendUSD:        10.00,
+				VariableSpendUSD:     10.00,
+				SubscriptionSpendUSD: 0,
+				SessionCount:         1,
+				UsageEntryCount:      5,
+			},
+		},
+		RecentSessions: []service.DashboardRecentSession{
+			{
+				SessionID:    "session-acp-1",
+				SessionType:  "acp",
+				Provider:     domain.ProviderAnthropic,
+				AgentName:    "claude-code",
+				ProjectName:  "alpha",
+				EndedAt:      time.Date(2026, 4, 17, 15, 30, 0, 0, time.UTC),
+				TotalCostUSD: 10.00,
+				TotalTokens:  10000,
+				BillingMode:  domain.BillingModeDirectAPI,
+				ModelID:      "claude-3-5-sonnet-20241022",
+			},
+			{
+				SessionID:    "session-openclaw-1",
+				Provider:     domain.ProviderOpenAI,
+				AgentName:    "openclaw",
+				ProjectName:  "gamma",
+				EndedAt:      time.Date(2026, 4, 17, 16, 30, 0, 0, time.UTC),
+				TotalCostUSD: 10.00,
+				TotalTokens:  8000,
+				BillingMode:  domain.BillingModeDirectAPI,
+				ModelID:      "gpt-4o",
+			},
+		},
+	}}
+	m := newModel(modelDependencies{loader: loader}, period)
+
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 140, Height: 30})
+	m = updated.(model)
+	updated, _ = m.Update(dashboardLoadedMsg{data: loader.data})
+	m = updated.(model)
+
+	view := m.View()
+	for _, needle := range []string{"openclaw", "claude-code/acp", "anthropic", "openai", "10.00"} {
+		if !strings.Contains(view, needle) {
+			t.Fatalf("View() missing %q\n%s", needle, view)
+		}
+	}
+}
+
+func TestModelRendersOpenClawEmptyState(t *testing.T) {
+	period, err := domain.NewMonthlyPeriod(time.Date(2026, 4, 17, 12, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("NewMonthlyPeriod() error = %v", err)
+	}
+
+	loader := staticLoader{data: service.DashboardSnapshot{
+		Period: period,
+		Empty:  true,
+	}}
+	m := newModel(modelDependencies{loader: loader}, period)
+
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 140, Height: 30})
+	m = updated.(model)
+	updated, _ = m.Update(dashboardLoadedMsg{data: loader.data})
+	m = updated.(model)
+
+	view := m.View()
+	if !strings.Contains(view, "No spend, budgets, or sessions are available") {
+		t.Fatalf("View() missing empty state message\n%s", view)
+	}
+	if strings.Contains(view, "fatal") || strings.Contains(view, "error") {
+		t.Fatalf("View() contains unexpected error text\n%s", view)
+	}
+}
+
+func TestRenderGraphViewOpenClawAndACP(t *testing.T) {
+	m := &model{
+		graphTab: graphTabModelTokenUsage,
+		graphData: service.GraphSnapshot{
+			ModelTokenUsages: []service.ModelTokenUsage{
+				{
+					ModelName:   "claude-3-5-sonnet-20241022",
+					TotalTokens: 10000,
+				},
+				{
+					ModelName:   "gpt-4o",
+					TotalTokens: 8000,
+				},
+			},
+			ModelCosts: []service.ModelCost{
+				{
+					ModelName:    "claude-3-5-sonnet-20241022",
+					TotalCostUSD: 10.00,
+				},
+				{
+					ModelName:    "gpt-4o",
+					TotalCostUSD: 10.00,
+				},
+			},
+		},
+	}
+
+	view := renderGraphView(m, 80)
+	t.Logf("Token Usage View:\n%s", view)
+	for _, needle := range []string{"claude-3-5-", "10,000 tokens", "gpt-4o", "8,000 tokens"} {
+		if !strings.Contains(view, needle) {
+			t.Errorf("expected graph view to contain %q", needle)
+		}
+	}
+
+	m.graphTab = graphTabModelCost
+	view = renderGraphView(m, 80)
+	t.Logf("Cost View:\n%s", view)
+	for _, needle := range []string{"claude-3-5-", "10.00", "gpt-4o"} {
+		if !strings.Contains(view, needle) {
+			t.Errorf("expected graph view to contain %q", needle)
+		}
+	}
 }

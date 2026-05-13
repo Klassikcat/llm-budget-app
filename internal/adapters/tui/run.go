@@ -72,6 +72,7 @@ func run(ctx context.Context, args []string, stderr io.Writer, opts RunOptions) 
 		subscriptions: graph.SubscriptionService,
 		insights:      graph.Store,
 		alerts:        graph.Store,
+		openRouter:    graph.OpenRouterActivitySyncService(),
 	}, period))
 	if _, err := program.Run(); err != nil {
 		return fmt.Errorf("run tui: %w", err)

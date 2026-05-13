@@ -171,6 +171,80 @@ func TestOpenRouterMissingAPIKeyReturnsTypedWarningState(t *testing.T) {
 	}
 }
 
+func TestOpenRouterAuthErrorsReturnTypedWarningState(t *testing.T) {
+	t.Parallel()
+
+	const syntheticAPIKey = "synthetic-openrouter-api-key"
+
+	tests := []struct {
+		name       string
+		statusCode int
+		body       string
+		wantCode   WarningCode
+	}{
+		{
+			name:       "401 invalid API key",
+			statusCode: http.StatusUnauthorized,
+			body:       `{"error":{"code":401,"message":"invalid credentials"}}`,
+			wantCode:   WarningCodeInvalidAPIKey,
+		},
+		{
+			name:       "403 access denied",
+			statusCode: http.StatusForbidden,
+			body:       `{"error":{"code":403,"message":"management API access denied"}}`,
+			wantCode:   WarningCodeAccessDenied,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path != "/api/v1/models" {
+					t.Fatalf("path = %q, want /api/v1/models", r.URL.Path)
+				}
+				if r.Header.Get("Authorization") != "Bearer "+syntheticAPIKey {
+					t.Fatal("Authorization header did not contain bearer token")
+				}
+
+				w.WriteHeader(tt.statusCode)
+				_, _ = w.Write([]byte(tt.body))
+			}))
+			defer server.Close()
+
+			client := NewClient(Options{APIKey: syntheticAPIKey, APIBaseURL: server.URL + "/api/v1"})
+			_, err := client.FetchCatalog(context.Background())
+			if err == nil {
+				t.Fatal("FetchCatalog() error = nil, want typed auth warning")
+			}
+
+			warning, ok := err.(*WarningState)
+			if !ok {
+				t.Fatalf("FetchCatalog() error = %T, want *WarningState", err)
+			}
+			if warning.Code != tt.wantCode {
+				t.Fatalf("warning.Code = %q, want %q", warning.Code, tt.wantCode)
+			}
+			if warning.SecretID != config.SecretOpenRouterAPIKey {
+				t.Fatalf("warning.SecretID = %q, want %q", warning.SecretID, config.SecretOpenRouterAPIKey)
+			}
+			if warning.StatusCode != tt.statusCode {
+				t.Fatalf("warning.StatusCode = %d, want %d", warning.StatusCode, tt.statusCode)
+			}
+			if strings.Contains(warning.Error(), syntheticAPIKey) || strings.Contains(warning.Message, syntheticAPIKey) {
+				t.Fatal("warning exposed raw API key")
+			}
+			if warning.Err != nil && strings.Contains(warning.Err.Error(), syntheticAPIKey) {
+				t.Fatal("warning cause exposed raw API key")
+			}
+			if client.WarningState() != nil {
+				t.Fatal("WarningState() persisted request auth failure, want transient error only")
+			}
+		})
+	}
+}
+
 func TestOpenRouterFetchUsageEntriesNormalizesActivity(t *testing.T) {
 	t.Parallel()
 
