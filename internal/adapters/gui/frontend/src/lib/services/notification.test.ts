@@ -137,6 +137,31 @@ describe('Notification Service', () => {
     expect(state.items[1].severity).toBe('warning');
   });
 
+  it('should classify alerts using each budget configured thresholds', () => {
+    const budgets: DashboardBudget[] = [
+      {
+        budgetId: 'b1',
+        name: 'Custom Threshold Budget',
+        provider: 'openai',
+        projectHash: 'hash1',
+        limitUsd: 100,
+        currentSpendUsd: 92,
+        remainingUsd: 8,
+        triggeredThresholdPercents: [90],
+        warningThresholdPercent: 60,
+        criticalThresholdPercent: 90,
+        budgetOverrunActive: false,
+        currency: 'USD'
+      }
+    ];
+
+    checkBudgetThresholds(budgets, '2023-10');
+
+    const state = get(notificationStore);
+    expect(state.items.length).toBe(1);
+    expect(state.items[0].severity).toBe('critical');
+  });
+
   it('should allow alerts for the same threshold on different budgets', () => {
     const dispatcher = vi.fn();
     setSystemNotificationDispatcher(dispatcher);

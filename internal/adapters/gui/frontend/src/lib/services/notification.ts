@@ -18,6 +18,26 @@ export function generateAlertKey(budgetId: string, thresholdPercent: number): st
   return `${budgetId}-${thresholdPercent}`;
 }
 
+function normalizeThresholdPercent(thresholdPercent: number): number {
+  return thresholdPercent <= 1 ? thresholdPercent * 100 : thresholdPercent;
+}
+
+function getAlertSeverity(
+  thresholdPercent: number,
+  warningThresholdPercent: number,
+  criticalThresholdPercent: number
+): ThresholdAlert['severity'] {
+  if (thresholdPercent >= normalizeThresholdPercent(criticalThresholdPercent)) {
+    return 'critical';
+  }
+
+  if (thresholdPercent >= normalizeThresholdPercent(warningThresholdPercent)) {
+    return 'warning';
+  }
+
+  return 'info';
+}
+
 export function checkBudgetThresholds(budgets: DashboardBudget[], periodMonth: string): void {
   for (const budget of budgets) {
     if (!budget.triggeredThresholdPercents || budget.triggeredThresholdPercents.length === 0) {
@@ -29,13 +49,17 @@ export function checkBudgetThresholds(budgets: DashboardBudget[], periodMonth: s
 
       if (!notificationStore.hasSentAlertKey(alertKey)) {
         const alertId = crypto.randomUUID();
-        const thresholdDisplay = threshold <= 1 ? threshold * 100 : threshold;
+        const thresholdDisplay = normalizeThresholdPercent(threshold);
         const thresholdFraction = threshold <= 1 ? threshold : threshold / 100;
 
         const alertData: ThresholdAlert = {
           alertId,
           kind: 'budget_threshold',
-          severity: thresholdDisplay >= 100 ? 'critical' : thresholdDisplay >= 80 ? 'warning' : 'info',
+          severity: getAlertSeverity(
+            thresholdDisplay,
+            budget.warningThresholdPercent,
+            budget.criticalThresholdPercent
+          ),
           triggeredAt: new Date().toISOString(),
           periodMonth,
           budgetId: budget.budgetId,
