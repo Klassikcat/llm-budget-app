@@ -283,3 +283,124 @@ func graphEntryID(index int) string {
 func graphModelName(index int) string {
 	return "model-" + string(rune('a'+index))
 }
+
+func TestGraphQueryServiceQueryGraphsOpenRouter(t *testing.T) {
+	period := mustGraphMonthlyPeriod(t, 2026, time.April)
+
+	tokens, err := domain.NewTokenUsage(1000, 200, 0, 0)
+	if err != nil {
+		t.Fatalf("NewTokenUsage() error = %v", err)
+	}
+	costs, err := domain.NewCostBreakdown(0.0123, 0, 0, 0, 0, 0)
+	if err != nil {
+		t.Fatalf("NewCostBreakdown() error = %v", err)
+	}
+	ref, err := domain.NewModelPricingRef(domain.ProviderOpenRouter, "anthropic/claude-3.5-sonnet", "anthropic/claude-3.5-sonnet")
+	if err != nil {
+		t.Fatalf("NewModelPricingRef() error = %v", err)
+	}
+	entry, err := domain.NewUsageEntry(domain.UsageEntry{
+		EntryID:       "entry-or-1",
+		Source:        domain.UsageSourceOpenRouter,
+		Provider:      domain.ProviderOpenRouter,
+		BillingMode:   domain.BillingModeOpenRouter,
+		OccurredAt:    time.Date(2026, 4, 2, 10, 0, 0, 0, time.UTC),
+		PricingRef:    &ref,
+		Tokens:        tokens,
+		CostBreakdown: costs,
+	})
+	if err != nil {
+		t.Fatalf("NewUsageEntry() error = %v", err)
+	}
+
+	repo := &graphStubUsageRepo{entries: []domain.UsageEntry{entry}}
+	svc := NewGraphQueryService(repo)
+
+	data, err := svc.QueryGraphs(context.Background(), GraphQuery{Period: period})
+	if err != nil {
+		t.Fatalf("QueryGraphs() error = %v", err)
+	}
+
+	if len(data.ModelTokenUsages) != 1 {
+		t.Fatalf("expected 1 model token usage, got %d", len(data.ModelTokenUsages))
+	}
+	if data.ModelTokenUsages[0].ModelName != "anthropic/claude-3.5-sonnet" {
+		t.Errorf("expected model name anthropic/claude-3.5-sonnet, got %s", data.ModelTokenUsages[0].ModelName)
+	}
+	if data.ModelTokenUsages[0].TotalTokens != 1200 {
+		t.Errorf("expected 1200 total tokens, got %d", data.ModelTokenUsages[0].TotalTokens)
+	}
+
+	if len(data.ModelCosts) != 1 {
+		t.Fatalf("expected 1 model cost, got %d", len(data.ModelCosts))
+	}
+	if data.ModelCosts[0].ModelName != "anthropic/claude-3.5-sonnet" {
+		t.Errorf("expected model name anthropic/claude-3.5-sonnet, got %s", data.ModelCosts[0].ModelName)
+	}
+	if data.ModelCosts[0].TotalCostUSD != 0.0123 {
+		t.Errorf("expected 0.0123 total cost, got %f", data.ModelCosts[0].TotalCostUSD)
+	}
+}
+
+func TestGraphQueryServiceOpenRouterActivitySourceOfTruthExcludesPaidOverlapAndPreservesTokenOnlyLocalOverlap(t *testing.T) {
+	period := mustGraphMonthlyPeriod(t, 2026, time.April)
+	entries := []domain.UsageEntry{
+		mustTask13GraphOpenRouterEntry(t, "activity", domain.UsageSourceOpenRouter, domain.BillingModeOpenRouter, "endpoint-shared", 100, 10),
+		mustTask13GraphOpenRouterEntry(t, "local-openrouter-overlap", domain.UsageSourceCLISession, domain.BillingModeOpenRouter, "endpoint-shared", 900, 99),
+		mustTask13GraphOpenRouterEntry(t, "local-openrouter-token-only-overlap", domain.UsageSourceCLISession, domain.BillingModeOpenRouter, "endpoint-shared", 30, 0),
+		mustTask13GraphOpenRouterEntry(t, "local-byok-boundary", domain.UsageSourceCLISession, domain.BillingModeBYOK, "endpoint-shared", 20, 2),
+		mustTask13GraphOpenRouterEntry(t, "local-openrouter-distinct", domain.UsageSourceCLISession, domain.BillingModeOpenRouter, "endpoint-distinct", 50, 5),
+	}
+	repo := &graphStubUsageRepo{entries: entries}
+	svc := NewGraphQueryService(repo)
+
+	data, err := svc.QueryGraphs(context.Background(), GraphQuery{Period: period})
+	if err != nil {
+		t.Fatalf("QueryGraphs() error = %v", err)
+	}
+
+	if len(data.ModelTokenUsages) != 1 {
+		t.Fatalf("len(ModelTokenUsages) = %d, want 1", len(data.ModelTokenUsages))
+	}
+	if got, want := data.ModelTokenUsages[0].TotalTokens, int64(200); got != want {
+		t.Fatalf("ModelTokenUsages[0].TotalTokens = %d, want %d", got, want)
+	}
+	if len(data.ModelCosts) != 1 {
+		t.Fatalf("len(ModelCosts) = %d, want 1", len(data.ModelCosts))
+	}
+	if got, want := data.ModelCosts[0].TotalCostUSD, 17.0; got != want {
+		t.Fatalf("ModelCosts[0].TotalCostUSD = %v, want %v", got, want)
+	}
+}
+
+func mustTask13GraphOpenRouterEntry(t *testing.T, entryID string, source domain.UsageSourceKind, billingMode domain.BillingMode, externalID string, inputTokens int64, totalCostUSD float64) domain.UsageEntry {
+	t.Helper()
+
+	tokens, err := domain.NewTokenUsage(inputTokens, 0, 0, 0)
+	if err != nil {
+		t.Fatalf("NewTokenUsage() error = %v", err)
+	}
+	costs, err := domain.NewCostBreakdown(totalCostUSD, 0, 0, 0, 0, 0)
+	if err != nil {
+		t.Fatalf("NewCostBreakdown() error = %v", err)
+	}
+	ref, err := domain.NewModelPricingRef(domain.ProviderOpenRouter, "openai/gpt-4.1-2025-04-14", "openai/gpt-4.1")
+	if err != nil {
+		t.Fatalf("NewModelPricingRef() error = %v", err)
+	}
+	entry, err := domain.NewUsageEntry(domain.UsageEntry{
+		EntryID:       "task13-graph-" + entryID,
+		Source:        source,
+		Provider:      domain.ProviderOpenRouter,
+		BillingMode:   billingMode,
+		OccurredAt:    time.Date(2026, 4, 17, 12, 30, 0, 0, time.UTC),
+		ExternalID:    externalID,
+		PricingRef:    &ref,
+		Tokens:        tokens,
+		CostBreakdown: costs,
+	})
+	if err != nil {
+		t.Fatalf("NewUsageEntry() error = %v", err)
+	}
+	return entry
+}
