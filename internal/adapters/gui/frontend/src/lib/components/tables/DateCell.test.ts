@@ -9,6 +9,11 @@ describe('DateCell', () => {
     expect(getByText(/2024/)).toBeInTheDocument();
   });
 
+  it('preserves date-only string calendar dates', () => {
+    const { getByText } = render(DateCell, { value: '2024-01-15', format: 'short' });
+    expect(getByText('Jan 15, 2024')).toBeInTheDocument();
+  });
+
   it('formats long dates correctly', () => {
     const date = new Date('2024-01-15T10:30:00Z');
     const { getByText } = render(DateCell, { value: date, format: 'long' });
