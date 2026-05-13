@@ -225,6 +225,87 @@ func TestClaudeParserRotationSafe(t *testing.T) {
 	assertContainsWarning(t, rotated.Warnings, "start offset exceeds content length; restarting from beginning")
 }
 
+func TestClaudeCodeParser(t *testing.T) {
+	t.Parallel()
+
+	t.Run("ACPMetadata", func(t *testing.T) {
+		t.Parallel()
+
+		parser := NewClaudeCodeParser()
+		content := fixtureBytes(t, "claude/acp-session.jsonl")
+		path := filepath.Join(string(filepath.Separator), "home", "tester", ".config", "claude", "projects", "acp-app", "sessions", "acp-session.jsonl")
+
+		result, err := parser.Parse(context.Background(), ports.ParseInput{
+			SourceID: "claude-acp",
+			Path:     path,
+			Content:  content,
+		})
+		if err != nil {
+			t.Fatalf("Parse() error = %v", err)
+		}
+
+		if len(result.Events) != 1 {
+			t.Fatalf("len(result.Events) = %d, want 1", len(result.Events))
+		}
+
+		event := result.Events[0]
+		if event.SessionID != "session-acp" {
+			t.Fatalf("event.SessionID = %q, want %q", event.SessionID, "session-acp")
+		}
+		if event.ProjectName != "acp-app" {
+			t.Fatalf("event.ProjectName = %q, want %q", event.ProjectName, "acp-app")
+		}
+		if event.PrivacySafeTags["claude_session_type"] != "acp" {
+			t.Fatalf("event.PrivacySafeTags[claude_session_type] = %q, want %q", event.PrivacySafeTags["claude_session_type"], "acp")
+		}
+		assertPrivacySafeTagsDoNotContain(t, event.PrivacySafeTags, "redacted")
+	})
+
+	t.Run("StandardMetadata", func(t *testing.T) {
+		t.Parallel()
+
+		parser := NewClaudeCodeParser()
+		content := fixtureBytes(t, "claude/current/projects/acme-app/sessions/current-session.jsonl")
+		path := filepath.Join(string(filepath.Separator), "home", "tester", ".config", "claude", "projects", "acme-app", "sessions", "current-session.jsonl")
+
+		result, err := parser.Parse(context.Background(), ports.ParseInput{
+			SourceID: "claude-standard",
+			Path:     path,
+			Content:  content,
+		})
+		if err != nil {
+			t.Fatalf("Parse() error = %v", err)
+		}
+
+		if len(result.Events) != 2 {
+			t.Fatalf("len(result.Events) = %d, want 2", len(result.Events))
+		}
+
+		event := result.Events[0]
+		if event.PrivacySafeTags["claude_session_type"] != "standard" {
+			t.Fatalf("event.PrivacySafeTags[claude_session_type] = %q, want %q", event.PrivacySafeTags["claude_session_type"], "standard")
+		}
+		if event.PrivacySafeTags["location"] != claudeLocationCurrent {
+			t.Fatalf("event.PrivacySafeTags[location] = %q, want %q", event.PrivacySafeTags["location"], claudeLocationCurrent)
+		}
+		if event.PrivacySafeTags["speed"] != "standard" {
+			t.Fatalf("event.PrivacySafeTags[speed] = %q, want %q", event.PrivacySafeTags["speed"], "standard")
+		}
+		if event.PrivacySafeTags["version"] != "1.2.3" {
+			t.Fatalf("event.PrivacySafeTags[version] = %q, want %q", event.PrivacySafeTags["version"], "1.2.3")
+		}
+		if event.SessionID != "session-current" {
+			t.Fatalf("event.SessionID = %q, want %q", event.SessionID, "session-current")
+		}
+		if event.Tokens.InputTokens != 120 || event.Tokens.OutputTokens != 45 || event.Tokens.CacheWriteTokens != 30 || event.Tokens.CacheReadTokens != 15 {
+			t.Fatalf("event.Tokens = %+v, want normalized Claude usage values", event.Tokens)
+		}
+		if event.CostBreakdown.TotalUSD != 0.12345 {
+			t.Fatalf("event.CostBreakdown.TotalUSD = %v, want 0.12345", event.CostBreakdown.TotalUSD)
+		}
+	})
+}
+
 func fixtureBytes(t *testing.T, relative string) []byte {
 	t.Helper()
 	path := fixturePath(t, relative)
@@ -253,4 +334,13 @@ func assertContainsWarning(t *testing.T, warnings []string, needle string) {
 		}
 	}
 	t.Fatalf("warnings %v do not contain %q", warnings, needle)
+}
+
+func assertPrivacySafeTagsDoNotContain(t *testing.T, tags map[string]string, forbidden string) {
+	t.Helper()
+	for key, value := range tags {
+		if strings.Contains(key, forbidden) || strings.Contains(value, forbidden) {
+			t.Fatalf("PrivacySafeTags leaked forbidden content %q: %v", forbidden, tags)
+		}
+	}
 }

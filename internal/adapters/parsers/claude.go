@@ -27,13 +27,20 @@ const (
 type ClaudeCodeParser struct{}
 
 type claudeCodeRecord struct {
-	CWD       string             `json:"cwd"`
-	SessionID string             `json:"sessionId"`
-	Timestamp string             `json:"timestamp"`
-	Version   string             `json:"version"`
-	RequestID string             `json:"requestId"`
-	CostUSD   *float64           `json:"costUSD"`
-	Message   *claudeCodeMessage `json:"message"`
+	CWD               string             `json:"cwd"`
+	SessionID         string             `json:"sessionId"`
+	Timestamp         string             `json:"timestamp"`
+	Version           string             `json:"version"`
+	RequestID         string             `json:"requestId"`
+	CostUSD           *float64           `json:"costUSD"`
+	ClaudeSessionType string             `json:"claudeSessionType"`
+	ACP               *claudeCodeACP     `json:"acp"`
+	Message           *claudeCodeMessage `json:"message"`
+}
+
+type claudeCodeACP struct {
+	Version     string `json:"version"`
+	PrivacySafe *bool  `json:"privacySafe"`
 }
 
 type claudeCodeMessage struct {
@@ -210,6 +217,7 @@ func parseClaudeCodeLine(path string, line []byte, allowPartial bool) (claudeLin
 	if version := strings.TrimSpace(record.Version); version != "" {
 		privacySafeTags["version"] = version
 	}
+	privacySafeTags["claude_session_type"] = claudeSessionType(record)
 
 	dedupeKey := claudeDedupeKey(record, line)
 	externalID := firstNonEmpty(strings.TrimSpace(record.RequestID), strings.TrimSpace(record.Message.ID), dedupeKey)
@@ -232,6 +240,18 @@ func parseClaudeCodeLine(path string, line []byte, allowPartial bool) (claudeLin
 	}
 
 	return claudeLineAccepted, event, dedupeKey, nil
+}
+
+func claudeSessionType(record claudeCodeRecord) string {
+	if strings.EqualFold(strings.TrimSpace(record.ClaudeSessionType), "acp") {
+		return "acp"
+	}
+	if record.ACP != nil {
+		if strings.TrimSpace(record.ACP.Version) != "" || record.ACP.PrivacySafe != nil {
+			return "acp"
+		}
+	}
+	return "standard"
 }
 
 func trimTrailingCarriageReturn(line []byte) []byte {
