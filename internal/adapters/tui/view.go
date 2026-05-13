@@ -338,6 +338,13 @@ func renderRecentSessionsSection(sessions []service.DashboardRecentSession, focu
 		if agent == "" {
 			agent = "unknown-agent"
 		}
+		if session.SessionType == "acp" {
+			if agent == "claude-code" {
+				agent = "claude-code/acp"
+			} else {
+				agent = agent + "/acp"
+			}
+		}
 		project := strings.TrimSpace(session.ProjectName)
 		if project == "" {
 			project = "unknown-project"

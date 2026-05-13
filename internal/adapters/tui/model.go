@@ -12,6 +12,7 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 
+	"llm-budget-tracker/internal/adapters/openrouter"
 	"llm-budget-tracker/internal/domain"
 	"llm-budget-tracker/internal/ports"
 	"llm-budget-tracker/internal/service"
@@ -42,6 +43,10 @@ type subscriptionManager interface {
 
 type insightLister interface {
 	ListInsights(ctx context.Context, period domain.MonthlyPeriod) ([]domain.Insight, error)
+}
+
+type openRouterSyncer interface {
+	Sync(ctx context.Context, options ports.OpenRouterActivityOptions) (service.OpenRouterActivitySyncResult, error)
 }
 
 type alertLister interface {
@@ -141,6 +146,7 @@ type modelDependencies struct {
 	subscriptions subscriptionManager
 	insights      insightLister
 	alerts        alertLister
+	openRouter    openRouterSyncer
 }
 
 type formField struct {
@@ -289,6 +295,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.syncViewport()
 		return m, nil
+	case openRouterSyncedMsg:
+		if msg.err != nil {
+			m.statusMessage = openRouterSyncStatusMessage(msg.err)
+			m.syncViewport()
+			return m, nil
+		} else {
+			m.statusMessage = fmt.Sprintf("Synced %d OpenRouter usage entries", len(msg.result.UsageEntries))
+		}
+		m.syncViewport()
+		return m, m.loadAll()
 	case alertsLoadedMsg:
 		if msg.err != nil {
 			m.statusMessage = fmt.Sprintf("Alert refresh failed: %v", msg.err)
@@ -414,6 +430,10 @@ func (m model) View() string {
 
 func (m model) updateDashboard(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
+	case "o":
+		m.statusMessage = "Syncing OpenRouter usage..."
+		m.syncViewport()
+		return m, m.syncOpenRouter()
 	case "r":
 		m.loading = true
 		m.err = nil
@@ -718,6 +738,40 @@ func (m model) deleteSubscription(subscriptionID string) tea.Cmd {
 
 func isSettingsManagedSubscription(subscriptionID string) bool {
 	return strings.HasPrefix(strings.TrimSpace(subscriptionID), "settings-")
+}
+
+func openRouterSyncStatusMessage(err error) string {
+	if err == nil {
+		return ""
+	}
+
+	var warning *openrouter.WarningState
+	if errors.As(err, &warning) {
+		switch warning.Code {
+		case openrouter.WarningCodeMissingAPIKey:
+			return "OpenRouter API key not configured"
+		case openrouter.WarningCodeInvalidAPIKey:
+			return "OpenRouter API key was rejected. Update provider.openrouter.api_key and try again."
+		case openrouter.WarningCodeAccessDenied:
+			return "OpenRouter API key does not have management API access."
+		}
+	}
+
+	message := strings.ToLower(err.Error())
+	if strings.Contains(message, "provider.openrouter.api_key is configured") || strings.Contains(message, "missing_api_key") || strings.Contains(message, "not configured") {
+		return "OpenRouter API key not configured"
+	}
+	if errors.Is(err, context.DeadlineExceeded) || strings.Contains(message, "timeout") || strings.Contains(message, "timed out") {
+		return "OpenRouter sync timed out. Try again later."
+	}
+	if strings.Contains(message, "status 429") || strings.Contains(message, "status 5") || strings.Contains(message, "rate limit") || strings.Contains(message, "server error") {
+		return "OpenRouter is temporarily unavailable or rate limited. Try again later."
+	}
+	if strings.Contains(message, "decode openrouter") || strings.Contains(message, "normalize openrouter") || strings.Contains(message, "malformed") || strings.Contains(message, "invalid character") {
+		return "OpenRouter returned an unreadable response. Try again later."
+	}
+
+	return "OpenRouter sync failed. Check connection and try again."
 }
 
 func usesViewportChrome(mode viewMode) bool {
@@ -1455,4 +1509,23 @@ func currentInsight(m model) (domain.Insight, bool) {
 		return domain.Insight{}, false
 	}
 	return m.insights[m.insightSelection], true
+}
+
+type openRouterSyncedMsg struct {
+	result service.OpenRouterActivitySyncResult
+	err    error
+}
+
+func (m model) syncOpenRouter() tea.Cmd {
+	return func() tea.Msg {
+		if m.deps.openRouter == nil {
+			return openRouterSyncedMsg{err: errors.New("OpenRouter sync is not configured")}
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+
+		res, err := m.deps.openRouter.Sync(ctx, ports.OpenRouterActivityOptions{})
+		return openRouterSyncedMsg{result: res, err: err}
+	}
 }
