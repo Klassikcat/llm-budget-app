@@ -1,7 +1,9 @@
 {
   "$schema": "https://wails.io/schemas/config.v2.json",
   "name": "llm-budget-tracker",
-  "outputfilename": "gui.bin",
+  "outputfilename": "llm-budget-tracker-gui",
   "frontend:dir": "internal/adapters/gui/frontend",
+  "frontend:install": "npm install",
+  "frontend:build": "npm run build",
   "assetdir": "dist"
 }

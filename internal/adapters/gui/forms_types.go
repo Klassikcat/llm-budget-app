@@ -30,6 +30,7 @@ type SettingsFormState struct {
 	SubscriptionDefaults SubscriptionDefaultsState `json:"subscriptionDefaults"`
 	Budgets              BudgetSettingsState       `json:"budgets"`
 	Notifications        NotificationSettingsState `json:"notifications"`
+	DatabasePath         string                    `json:"databasePath"`
 }
 
 type SubscriptionDefaultsState struct {
@@ -105,14 +106,15 @@ type SubscriptionMutationResponse struct {
 }
 
 type SubscriptionState struct {
-	PresetKey  string  `json:"presetKey,omitempty"`
-	Provider   string  `json:"provider"`
-	PlanName   string  `json:"planName"`
-	RenewalDay int     `json:"renewalDay"`
-	StartsAt   string  `json:"startsAt"`
-	EndsAt     string  `json:"endsAt,omitempty"`
-	FeeUSD     float64 `json:"feeUsd"`
-	IsActive   bool    `json:"isActive"`
+	SubscriptionID string  `json:"subscriptionId"`
+	PresetKey      string  `json:"presetKey,omitempty"`
+	Provider       string  `json:"provider"`
+	PlanName       string  `json:"planName"`
+	RenewalDay     int     `json:"renewalDay"`
+	StartsAt       string  `json:"startsAt"`
+	EndsAt         string  `json:"endsAt,omitempty"`
+	FeeUSD         float64 `json:"feeUsd"`
+	IsActive       bool    `json:"isActive"`
 }
 
 type SubscriptionPresetState struct {

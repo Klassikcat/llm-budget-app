@@ -1,0 +1,14 @@
+
+> llm-budget-tracker-gui@0.1.0 test
+> vitest run src/lib/services/notification.test.ts -t should prevent duplicate alerts
+
+
+ RUN  v3.2.4 /home/shinjungtae/Projects/Personal/BudgetApps/llm-budget-tracker/internal/adapters/gui/frontend
+
+ ✓ src/lib/services/notification.test.ts (5 tests | 4 skipped) 2ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 4 skipped (5)
+   Start at  13:10:34
+   Duration  565ms (transform 157ms, setup 261ms, collect 13ms, tests 2ms, environment 140ms, prepare 38ms)
+

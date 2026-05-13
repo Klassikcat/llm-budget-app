@@ -1,0 +1,3 @@
+- 2026-04-30: Chose @sveltejs/adapter-static with pages/assets=dist and fallback=index.html to preserve Wails assetdir/embed compatibility without changing Go files.
+- 2026-04-30: Aligned Vitest to v3.x with Vite 6 after v2.x installed a nested Vite type version that broke svelte-check typing.
+- 2026-04-30: User explicitly waived the remaining macOS Wails build evidence requirement because this is a Linux machine ("빌드는 건너뛰어. 이거 리눅스 머신이니까."). F1 should audit all other plan compliance and treat macOS build evidence as intentionally skipped by owner decision, not as a local blocker.

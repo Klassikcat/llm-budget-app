@@ -11,13 +11,22 @@ type subscriptionQuerier interface {
 	QuerySubscriptions(ctx context.Context, query service.SubscriptionQuery) (service.SubscriptionListSnapshot, error)
 }
 
+type subscriptionDeleter interface {
+	DeleteSubscription(ctx context.Context, subscriptionID string) error
+}
+
 type SubscriptionLookupBinding struct {
 	queryService subscriptionQuerier
+	manager      subscriptionDeleter
 	ctx          context.Context
 }
 
-func NewSubscriptionLookupBinding(queryService subscriptionQuerier) *SubscriptionLookupBinding {
-	return &SubscriptionLookupBinding{queryService: queryService}
+func NewSubscriptionLookupBinding(queryService subscriptionQuerier, managers ...subscriptionDeleter) *SubscriptionLookupBinding {
+	binding := &SubscriptionLookupBinding{queryService: queryService}
+	if len(managers) > 0 {
+		binding.manager = managers[0]
+	}
+	return binding
 }
 
 func (b *SubscriptionLookupBinding) startup(ctx context.Context) {
@@ -43,6 +52,24 @@ func (b *SubscriptionLookupBinding) LoadSubscriptions() (SubscriptionListRespons
 	}
 
 	return toSubscriptionListResponse(snapshot), nil
+}
+
+func (b *SubscriptionLookupBinding) DeleteSubscription(subscriptionID string) (MutationResponse, error) {
+	if b == nil || b.manager == nil {
+		return MutationResponse{}, fmt.Errorf("subscription manager is not initialized")
+	}
+	if err := b.manager.DeleteSubscription(b.context(), subscriptionID); err != nil {
+		return failedMutationResult(err), nil
+	}
+	return successMutationResult(), nil
+}
+
+func (b *SubscriptionLookupBinding) context() context.Context {
+	ctx := context.Background()
+	if b != nil && b.ctx != nil {
+		ctx = b.ctx
+	}
+	return ctx
 }
 
 func toSubscriptionListResponse(snapshot service.SubscriptionListSnapshot) SubscriptionListResponse {

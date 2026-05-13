@@ -18,3 +18,13 @@ coverage.html
 Thumbs.db
 .vscode/
 .idea/
+
+# Frontend dependencies and generated framework state
+internal/adapters/gui/frontend/node_modules/
+internal/adapters/gui/frontend/.svelte-kit/
+internal/adapters/gui/frontend/playwright-report/
+internal/adapters/gui/frontend/test-results/
+internal/adapters/gui/frontend/coverage/
+internal/adapters/gui/frontend/package.json.md5
+internal/adapters/gui/frontend/wailsjs/
+.playwright-mcp/

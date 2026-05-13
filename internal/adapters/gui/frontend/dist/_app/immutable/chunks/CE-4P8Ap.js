@@ -1,0 +1,1 @@
+import{g as i}from"./C2LDn7X7.js";async function a(n=""){return i().invoke("InsightsBinding","LoadWasteSummary",n)}async function t(n=""){return i().invoke("InsightsBinding","LoadInsights",n)}export{t as a,a as l};

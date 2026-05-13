@@ -1,0 +1,33 @@
+@import './tokens.css';
+
+/* biome-ignore lint/suspicious/noUnknownAtRules: Tailwind directives */
+@tailwind base;
+/* biome-ignore lint/suspicious/noUnknownAtRules: Tailwind directives */
+@tailwind components;
+/* biome-ignore lint/suspicious/noUnknownAtRules: Tailwind directives */
+@tailwind utilities;
+
+@layer base {
+  html.dark,
+  html:not(.light) {
+    color-scheme: dark;
+  }
+
+  html.light {
+    color-scheme: light;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-text);
+    font-family: var(--font-sans, ui-sans-serif, system-ui, sans-serif);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  select,
+  option {
+    background-color: var(--color-background);
+    color: var(--color-text);
+  }
+}

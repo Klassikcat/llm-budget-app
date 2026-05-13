@@ -3,166 +3,43 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>LLM Budget Tracker</title>
-    <style>
-      :root {
-        color-scheme: light dark;
-        font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        background: #0f172a;
-        color: #e2e8f0;
-      }
-
-      body {
-        margin: 0;
-        min-height: 100vh;
-        background: linear-gradient(180deg, #0f172a 0%, #111827 100%);
-      }
-
-      main {
-        max-width: 1120px;
-        margin: 0 auto;
-        padding: 32px 24px 48px;
-      }
-
-      h1 {
-        margin: 0 0 8px;
-        font-size: 2rem;
-      }
-
-      p {
-        margin: 0;
-        color: #94a3b8;
-      }
-
-      .status,
-      .section,
-      .card {
-        border: 1px solid rgba(148, 163, 184, 0.25);
-        border-radius: 16px;
-        background: rgba(15, 23, 42, 0.72);
-        backdrop-filter: blur(10px);
-      }
-
-      .status {
-        margin-top: 20px;
-        padding: 16px 18px;
-      }
-
-      .grid {
-        display: grid;
-        gap: 16px;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        margin-top: 24px;
-      }
-
-      .card {
-        padding: 18px;
-      }
-
-      .card strong {
-        display: block;
-        margin-top: 10px;
-        font-size: 1.5rem;
-      }
-
-      .section {
-        margin-top: 20px;
-        padding: 18px;
-      }
-
-      ul {
-        margin: 12px 0 0;
-        padding-left: 18px;
-      }
-    </style>
+    <link href="/_app/immutable/entry/start.DYqb47h9.js" rel="modulepreload">
+		<link href="/_app/immutable/chunks/BiTkIEm1.js" rel="modulepreload">
+		<link href="/_app/immutable/chunks/BJwKsaIM.js" rel="modulepreload">
+		<link href="/_app/immutable/entry/app.C20BFHbg.js" rel="modulepreload">
+		<link href="/_app/immutable/chunks/x5nLzxBn.js" rel="modulepreload">
+		<link href="/_app/immutable/chunks/LyHwbH2a.js" rel="modulepreload">
+		<link href="/_app/immutable/chunks/Bj9egv7_.js" rel="modulepreload">
+		<link href="/_app/immutable/nodes/0.-Cy3_yA7.js" rel="modulepreload">
+		<link href="/_app/immutable/chunks/b8a-KyR8.js" rel="modulepreload">
+		<link href="/_app/immutable/chunks/CsAl4F_c.js" rel="modulepreload">
+		<link href="/_app/immutable/chunks/BEXIbaIw.js" rel="modulepreload">
+		<link href="/_app/immutable/chunks/C2LDn7X7.js" rel="modulepreload">
+		<link href="/_app/immutable/chunks/g4eLXoPP.js" rel="modulepreload">
+		<link href="/_app/immutable/chunks/DhdFEr67.js" rel="modulepreload">
+		<link href="/_app/immutable/chunks/9oviMODM.js" rel="modulepreload">
+		<link href="/_app/immutable/chunks/iNhNe1-3.js" rel="modulepreload">
+		
+		<link href="/_app/immutable/assets/0.DDmTDDXk.css" rel="stylesheet">
   </head>
-  <body>
-    <main>
-      <h1>LLM Budget Tracker</h1>
-      <p>Wails dashboard shell ready for monthly totals, provider summaries, budgets, and recent sessions.</p>
+  <body data-sveltekit-preload-data="hover">
+    <div style="display: contents">
+			<script>
+				{
+					__sveltekit_1lidu38 = {
+						base: ""
+					};
 
-      <div class="status">
-        Loading dashboard data from the shared Go bindings. When no data exists, the shell stays on a deterministic empty state instead of crashing.
-      </div>
+					const element = document.currentScript.parentElement;
 
-      <section class="grid" aria-label="totals overview">
-        <article class="card">
-          <span>Total spend</span>
-          <strong>$0.00</strong>
-        </article>
-        <article class="card">
-          <span>Variable spend</span>
-          <strong>$0.00</strong>
-        </article>
-        <article class="card">
-          <span>Subscriptions</span>
-          <strong>$0.00</strong>
-        </article>
-      </section>
-
-      <section class="section">
-        <h2>Provider summaries</h2>
-        <p>The dashboard binding returns per-provider totals and session counts for this area.</p>
-      </section>
-
-      <section class="section">
-        <h2>Budgets</h2>
-        <p>Budget cards consume shared monthly rollups and threshold state from Go query services.</p>
-      </section>
-
-      <section class="section">
-        <h2>Recent sessions</h2>
-        <ul>
-          <li>Recent CLI sessions will appear here with provider, model, tokens, and spend.</li>
-          <li>If the month is empty, the binding returns empty arrays and zero totals.</li>
-        </ul>
-      </section>
-    </main>
-    <script>
-      (function () {
-        function normalizePayload(payload) {
-          if (Array.isArray(payload)) {
-            return payload[0] || {};
-          }
-          return payload || {};
-        }
-
-        async function showDesktopNotification(payload) {
-          if (!("Notification" in window)) {
-            return;
-          }
-
-          if (Notification.permission === "default") {
-            try {
-              await Notification.requestPermission();
-            } catch (_) {
-              return;
-            }
-          }
-
-          if (Notification.permission !== "granted") {
-            return;
-          }
-
-          const title = payload.title || "LLM Budget Tracker";
-          const body = [payload.subtitle, payload.body].filter(Boolean).join("\n");
-          new Notification(title, { body });
-        }
-
-        function bindNotificationEvent() {
-          const api = window.runtime || window.wails || window.go;
-          const eventsOn = api && typeof api.EventsOn === "function" ? api.EventsOn.bind(api) : null;
-          if (!eventsOn) {
-            return;
-          }
-
-          eventsOn("llmbudget:desktop-notification", function (payload) {
-            void showDesktopNotification(normalizePayload(payload));
-          });
-        }
-
-        bindNotificationEvent();
-      })();
-    </script>
+					Promise.all([
+						import("/_app/immutable/entry/start.DYqb47h9.js"),
+						import("/_app/immutable/entry/app.C20BFHbg.js")
+					]).then(([kit, app]) => {
+						kit.start(app, element);
+					});
+				}
+			</script>
+		</div>
   </body>
 </html>

@@ -1,0 +1,20 @@
+Command: npm test -- --run src/lib/stores/budget.test.ts src/lib/stores/usage.test.ts src/lib/stores/subscription.test.ts src/lib/stores/waste.test.ts -t "tracks errors"
+Working directory: internal/adapters/gui/frontend
+---
+
+> llm-budget-tracker-gui@0.1.0 test
+> vitest run --run src/lib/stores/budget.test.ts src/lib/stores/usage.test.ts src/lib/stores/subscription.test.ts src/lib/stores/waste.test.ts -t tracks errors
+
+
+ RUN  v3.2.4 /home/shinjungtae/Projects/Personal/BudgetApps/llm-budget-tracker/internal/adapters/gui/frontend
+
+ ✓ src/lib/stores/usage.test.ts (5 tests | 4 skipped) 29ms
+ ✓ src/lib/stores/subscription.test.ts (5 tests | 4 skipped) 31ms
+ ✓ src/lib/stores/budget.test.ts (5 tests | 4 skipped) 30ms
+ ✓ src/lib/stores/waste.test.ts (4 tests | 3 skipped) 30ms
+
+ Test Files  4 passed (4)
+      Tests  4 passed | 15 skipped (19)
+   Start at  12:59:16
+   Duration  624ms (transform 221ms, setup 1.06s, collect 50ms, tests 119ms, environment 640ms, prepare 163ms)
+

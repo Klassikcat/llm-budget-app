@@ -50,6 +50,8 @@ type DashboardBudgetSummary struct {
 	CurrentSpendUSD            float64
 	RemainingUSD               float64
 	TriggeredThresholdPercents []float64
+	WarningThresholdPercent    int
+	CriticalThresholdPercent   int
 	BudgetOverrunActive        bool
 	Currency                   string
 }
@@ -234,6 +236,18 @@ func buildDashboardBudgetSummaries(budgets []domain.MonthlyBudget, entries []dom
 			triggered = append(triggered, threshold.Percent)
 		}
 
+		var warning, critical int
+		for _, threshold := range budget.Thresholds {
+			if threshold.Severity == domain.AlertSeverityWarning {
+				warning = int(threshold.Percent * 100)
+			} else if threshold.Severity == domain.AlertSeverityCritical {
+				critical = int(threshold.Percent * 100)
+			}
+		}
+		if critical == 0 {
+			critical = 100
+		}
+
 		results = append(results, DashboardBudgetSummary{
 			BudgetID:                   budget.BudgetID,
 			Name:                       budget.Name,
@@ -243,6 +257,8 @@ func buildDashboardBudgetSummaries(budgets []domain.MonthlyBudget, entries []dom
 			CurrentSpendUSD:            currentSpend,
 			RemainingUSD:               status.RemainingUSD,
 			TriggeredThresholdPercents: triggered,
+			WarningThresholdPercent:    warning,
+			CriticalThresholdPercent:   critical,
 			BudgetOverrunActive:        status.IsOverrun,
 			Currency:                   budget.Currency,
 		})

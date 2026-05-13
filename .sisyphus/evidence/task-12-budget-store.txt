@@ -1,0 +1,17 @@
+Command: npm test -- --run src/lib/stores/budget.test.ts
+Working directory: internal/adapters/gui/frontend
+---
+
+> llm-budget-tracker-gui@0.1.0 test
+> vitest run --run src/lib/stores/budget.test.ts
+
+
+ RUN  v3.2.4 /home/shinjungtae/Projects/Personal/BudgetApps/llm-budget-tracker/internal/adapters/gui/frontend
+
+ ✓ src/lib/stores/budget.test.ts (5 tests) 61ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  12:59:15
+   Duration  598ms (transform 164ms, setup 257ms, collect 7ms, tests 61ms, environment 133ms, prepare 39ms)
+

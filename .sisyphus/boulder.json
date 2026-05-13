@@ -1,90 +1,217 @@
 {
-  "active_plan": "/home/shinjungtae/Projects/Personal/BudgetApps/llm-budget-tracker/.sisyphus/plans/insights-dashboard-refactor.md",
-  "started_at": "2026-04-19T08:19:59.926Z",
+  "active_plan": "/home/shinjungtae/Projects/Personal/BudgetApps/llm-budget-tracker/.sisyphus/plans/gui-architecture.md",
+  "started_at": "2026-04-29T14:55:10.862Z",
   "session_ids": [
-    "ses_25b438f79ffesE2edS8YeVO4Yo",
-    "ses_2561ea50affeV6q5YYG5e3055b",
-    "ses_2561d807bffe1qcoOGUwKlmudf",
-    "ses_2561d809affexQf2UuX5b0KExq",
-    "ses_2561d807dffedld1GKfKq740dt",
-    "ses_25619ce68ffe6neJfMiaj7UuJz",
-    "ses_25619cef1ffedtFhfl5PsOdExJ",
-    "ses_2560c8aa3ffe21Av94qRpGES50",
-    "ses_256053c34ffeXng51B219m0sw9",
-    "ses_256053c68ffeFPAgYUfI7fagQH",
-    "ses_255f83218ffe0nIVyWdlEYZgRg",
-    "ses_255ee49e9ffeoMUKeo6xYMu7HX",
-    "ses_255e4a1b2ffePt3XgmvKLVCSZ7",
-    "ses_255d4596dffemDEftAGJaNjKmx",
-    "ses_255d45935ffefbR94ykSkhziDp",
-    "ses_255d459a6ffeKYULwpjyrh5zRT",
-    "ses_255d45858ffefycjGNaKZw1d20"
+    "ses_2265d5772ffeeoXPMC2zUcUduu",
+    "ses_22641bcd6ffe2nAt59LHWrifZe",
+    "ses_22641bc5effeP1QbMwVIHlIsRJ",
+    "ses_22641bc1affeThGcOLLm3AiNzf",
+    "ses_22641bc1affcRjV6ev8JELIZ6W",
+    "ses_22443604effex2MtUvXYZ3yBai",
+    "ses_22442cbf9ffeVbkIAcrzWeT8Lh",
+    "ses_22442cbd5ffeW1StXZqGptbG1U"
   ],
-  "plan_name": "insights-dashboard-refactor",
+  "session_origins": {
+    "ses_2265d5772ffeeoXPMC2zUcUduu": "direct",
+    "ses_22641bcd6ffe2nAt59LHWrifZe": "appended",
+    "ses_22641bc5effeP1QbMwVIHlIsRJ": "appended",
+    "ses_22641bc1affeThGcOLLm3AiNzf": "appended",
+    "ses_22641bc1affcRjV6ev8JELIZ6W": "appended",
+    "ses_22443604effex2MtUvXYZ3yBai": "direct",
+    "ses_22442cbf9ffeVbkIAcrzWeT8Lh": "appended",
+    "ses_22442cbd5ffeW1StXZqGptbG1U": "appended"
+  },
+  "plan_name": "gui-architecture",
+  "agent": "atlas",
   "task_sessions": {
     "todo:1": {
       "task_key": "todo:1",
       "task_label": "1",
-      "task_title": "Domain types + WasteSummaryService skeleton (RED)",
-      "session_id": "ses_25619cef1ffedtFhfl5PsOdExJ",
+      "task_title": "Svelte + Wails 프론트엔드 스캐폴딩 + 빌드 설정",
+      "session_id": "ses_22442cbd5ffeW1StXZqGptbG1U",
       "agent": "Sisyphus-Junior",
       "category": "quick",
-      "updated_at": "2026-04-20T08:04:52.422Z"
+      "updated_at": "2026-04-30T00:18:05.384Z"
     },
     "todo:2": {
       "task_key": "todo:2",
       "task_label": "2",
-      "task_title": "WasteSummaryService implementation (GREEN)",
-      "session_id": "ses_2560c8aa3ffe21Av94qRpGES50",
+      "task_title": "디자인 시스템 토큰 (TailwindCSS + CSS 변수)",
+      "session_id": "ses_22410324effe2RPG889rgV85sL",
       "agent": "Sisyphus-Junior",
-      "category": "deep",
-      "updated_at": "2026-04-20T08:17:25.811Z"
+      "category": "visual-engineering",
+      "updated_at": "2026-04-30T01:15:14.654Z"
+    },
+    "todo:3": {
+      "task_key": "todo:3",
+      "task_label": "3",
+      "task_title": "TypeScript 타입 정의 (Go 도메인 모델 미러링)",
+      "session_id": "ses_224087350ffem5Mm0jCr41nIAk",
+      "agent": "Sisyphus-Junior",
+      "category": "quick",
+      "updated_at": "2026-04-30T01:22:07.989Z"
     },
     "todo:4": {
       "task_key": "todo:4",
       "task_label": "4",
-      "task_title": "Dashboard sub-tab widgets rendering (with golden tests)",
-      "session_id": "ses_256053c68ffeFPAgYUfI7fagQH",
+      "task_title": "Wails 바인딩 감사 + 클라이언트 레이어",
+      "session_id": "ses_223d18453ffehObPjB6Pbvup8Y",
       "agent": "Sisyphus-Junior",
-      "category": "visual-engineering",
-      "updated_at": "2026-04-20T08:29:17.752Z"
-    },
-    "todo:5": {
-      "task_key": "todo:5",
-      "task_label": "5",
-      "task_title": "Logs sub-tab rendering extraction + tab chrome",
-      "session_id": "ses_255f83218ffe0nIVyWdlEYZgRg",
-      "agent": "Sisyphus-Junior",
-      "category": "quick",
-      "updated_at": "2026-04-20T08:43:13.672Z"
-    },
-    "todo:7": {
-      "task_key": "todo:7",
-      "task_label": "7",
-      "task_title": "Integrate WasteSummaryService into TUI model + run.go",
-      "session_id": "ses_255ee49e9ffeoMUKeo6xYMu7HX",
-      "agent": "Sisyphus-Junior",
-      "category": "unspecified-high",
-      "updated_at": "2026-04-20T08:53:55.906Z"
+      "category": "deep",
+      "updated_at": "2026-04-30T02:29:34.654Z"
     },
     "todo:8": {
       "task_key": "todo:8",
       "task_label": "8",
-      "task_title": "tmux end-to-end QA scenarios",
-      "session_id": "ses_255e4a1b2ffePt3XgmvKLVCSZ7",
+      "task_title": "ECharts 차트 컴포넌트 라이브러리",
+      "session_id": "ses_223b5742affegJuvGRSIsT48tJ",
+      "agent": "Sisyphus-Junior",
+      "category": "visual-engineering",
+      "updated_at": "2026-04-30T02:53:17.872Z"
+    },
+    "todo:9": {
+      "task_key": "todo:9",
+      "task_label": "9",
+      "task_title": "데이터 테이블 컴포넌트",
+      "session_id": "ses_223ad499fffeVy0uSr6SruKLr6",
+      "agent": "Sisyphus-Junior",
+      "category": "visual-engineering",
+      "updated_at": "2026-04-30T03:05:17.506Z"
+    },
+    "todo:10": {
+      "task_key": "todo:10",
+      "task_label": "10",
+      "task_title": "폼 컴포넌트 (Input, Select, Toggle, DatePicker)",
+      "session_id": "ses_2239d357affeM2P897qoPgoFFE",
+      "agent": "Sisyphus-Junior",
+      "category": "visual-engineering",
+      "updated_at": "2026-04-30T03:23:34.415Z"
+    },
+    "todo:11": {
+      "task_key": "todo:11",
+      "task_label": "11",
+      "task_title": "카드/패널 컴포넌트",
+      "session_id": "ses_2238df965fferzlQ5FV6UAbWtf",
+      "agent": "Sisyphus-Junior",
+      "category": "visual-engineering",
+      "updated_at": "2026-04-30T03:48:40.700Z"
+    },
+    "todo:12": {
+      "task_key": "todo:12",
+      "task_label": "12",
+      "task_title": "Svelte 스토어 (budget, usage, subscription, waste)",
+      "session_id": "ses_22379e976ffekHcpMEjSpUxBm5",
+      "agent": "Sisyphus-Junior",
+      "category": "deep",
+      "updated_at": "2026-04-30T04:00:06.428Z"
+    },
+    "todo:13": {
+      "task_key": "todo:13",
+      "task_label": "13",
+      "task_title": "알림 서비스",
+      "session_id": "ses_22370f120ffebkfDXfChMUDN3Y",
+      "agent": "Sisyphus-Junior",
+      "category": "visual-engineering",
+      "updated_at": "2026-04-30T04:07:30.497Z"
+    },
+    "todo:14": {
+      "task_key": "todo:14",
+      "task_label": "14",
+      "task_title": "대시보드 화면 (Overview + Providers + Budgets + Sessions)",
+      "session_id": "ses_223690252ffei28ZhsHGoSosJx",
+      "agent": "Sisyphus-Junior",
+      "category": "visual-engineering",
+      "updated_at": "2026-04-30T04:29:14.900Z"
+    },
+    "todo:15": {
+      "task_key": "todo:15",
+      "task_label": "15",
+      "task_title": "사용량 추적 화면 (수동 입력 + 히스토리)",
+      "session_id": "ses_2233200dcffehTaKW5x6Ym07s2",
+      "agent": "Sisyphus-Junior",
+      "category": "quick",
+      "updated_at": "2026-04-30T05:14:12.568Z"
+    },
+    "todo:16": {
+      "task_key": "todo:16",
+      "task_label": "16",
+      "task_title": "구독 관리 화면 (목록 + 추가 폼)",
+      "session_id": "ses_223300b63ffe4WpQrDoMQ3PNR2",
+      "agent": "Sisyphus-Junior",
+      "category": "visual-engineering",
+      "updated_at": "2026-04-30T05:23:19.478Z"
+    },
+    "todo:17": {
+      "task_key": "todo:17",
+      "task_label": "17",
+      "task_title": "예산 관리 화면 (설정 + 모니터링)",
+      "session_id": "ses_2231edaacffeuCF9x2xrwf0ESn",
+      "agent": "Sisyphus-Junior",
+      "category": "visual-engineering",
+      "updated_at": "2026-04-30T05:39:40.986Z"
+    },
+    "todo:18": {
+      "task_key": "todo:18",
+      "task_label": "18",
+      "task_title": "인사이트 화면 (낭비 감지 대시보드)",
+      "session_id": "ses_2230fa509ffeNd7vDv4f5OMzrS",
+      "agent": "Sisyphus-Junior",
+      "category": "visual-engineering",
+      "updated_at": "2026-04-30T05:57:49.418Z"
+    },
+    "todo:19": {
+      "task_key": "todo:19",
+      "task_label": "19",
+      "task_title": "그래프 화면 (4개 차트 탭)",
+      "session_id": "ses_222fdaf99ffeQJRG0VM221PWlm",
+      "agent": "Sisyphus-Junior",
+      "category": "visual-engineering",
+      "updated_at": "2026-04-30T06:18:05.506Z"
+    },
+    "todo:20": {
+      "task_key": "todo:20",
+      "task_label": "20",
+      "task_title": "설정 화면 + 테마/알림 환경설정",
+      "session_id": "ses_222ea1444ffeeftxzPe0IfUZyx",
+      "agent": "Sisyphus-Junior",
+      "category": "visual-engineering",
+      "updated_at": "2026-04-30T06:35:19.699Z"
+    },
+    "todo:21": {
+      "task_key": "todo:21",
+      "task_label": "21",
+      "task_title": "Wails 바인딩 전체 연동 + mutation-triggered refresh",
+      "session_id": "ses_222e234a8ffemvDJTo46FgxHjh",
+      "agent": "Sisyphus-Junior",
+      "category": "deep",
+      "updated_at": "2026-04-30T07:00:37.918Z"
+    },
+    "todo:22": {
+      "task_key": "todo:22",
+      "task_label": "22",
+      "task_title": "Playwright E2E 테스트 스위트",
+      "session_id": "ses_222c8e13cffe9M9NiNlNYGv0eT",
       "agent": "Sisyphus-Junior",
       "category": "unspecified-high",
-      "updated_at": "2026-04-20T09:12:56.755Z"
+      "updated_at": "2026-04-30T07:25:25.244Z"
+    },
+    "todo:23": {
+      "task_key": "todo:23",
+      "task_label": "23",
+      "task_title": "Linux + Mac 크로스 플랫폼 빌드 + 검증",
+      "session_id": "ses_222b615d6ffehmoE8Fm4dHmfUE",
+      "agent": "Sisyphus-Junior",
+      "category": "deep",
+      "updated_at": "2026-04-30T07:41:00.251Z"
     },
     "final-wave:f1": {
       "task_key": "final-wave:f1",
       "task_label": "F1",
       "task_title": "**Plan Compliance Audit** — `oracle`",
-      "session_id": "ses_255d459a6ffeKYULwpjyrh5zRT",
+      "session_id": "ses_22249904bffeo2tHu8X511bq2q",
       "agent": "Sisyphus-Junior",
-      "category": "unspecified-high",
-      "updated_at": "2026-04-20T09:18:13.246Z"
+      "category": "deep",
+      "updated_at": "2026-04-30T09:29:25.148Z"
     }
-  },
-  "agent": "atlas"
+  }
 }
