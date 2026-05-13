@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"time"
 
 	"llm-budget-tracker/internal/domain"
 	"llm-budget-tracker/internal/ports"
@@ -10,6 +11,10 @@ import (
 type OpenRouterActivitySyncResult struct {
 	UsageEntries []domain.UsageEntry
 }
+
+const OpenRouterActivityAutoSyncCheckpointID = "openrouter:activity:auto-sync"
+
+const OpenRouterActivityAutoSyncInterval = 24 * time.Hour
 
 type OpenRouterActivitySyncService struct {
 	source    ports.OpenRouterActivitySource
@@ -43,4 +48,37 @@ func (s *OpenRouterActivitySyncService) Sync(ctx context.Context, options ports.
 	}
 
 	return OpenRouterActivitySyncResult{UsageEntries: entries}, nil
+}
+
+func (s *OpenRouterActivitySyncService) AutoSync(ctx context.Context, checkpoints ports.CheckpointRepository, now time.Time) (OpenRouterActivitySyncResult, bool, error) {
+	if checkpoints == nil {
+		return OpenRouterActivitySyncResult{}, false, errCheckpointRepositoryRequired
+	}
+	if now.IsZero() {
+		now = time.Now().UTC()
+	}
+	now = now.UTC()
+
+	checkpoint, err := checkpoints.LoadCheckpoint(ctx, OpenRouterActivityAutoSyncCheckpointID)
+	if err != nil {
+		return OpenRouterActivitySyncResult{}, false, err
+	}
+	if !checkpoint.UpdatedAt.IsZero() && now.Sub(checkpoint.UpdatedAt.UTC()) < OpenRouterActivityAutoSyncInterval {
+		return OpenRouterActivitySyncResult{}, false, nil
+	}
+
+	result, err := s.Sync(ctx, ports.OpenRouterActivityOptions{})
+	if err != nil {
+		return OpenRouterActivitySyncResult{}, true, err
+	}
+
+	if err := checkpoints.SaveCheckpoint(ctx, ports.IngestionCheckpoint{
+		SourceID:   OpenRouterActivityAutoSyncCheckpointID,
+		LastMarker: "success",
+		UpdatedAt:  now,
+	}); err != nil {
+		return OpenRouterActivitySyncResult{}, true, err
+	}
+
+	return result, true, nil
 }
